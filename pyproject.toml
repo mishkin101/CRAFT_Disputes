@@ -18,6 +18,9 @@ dev = [
     "ipykernel>=6.29.5",
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["model", "model.*"]
