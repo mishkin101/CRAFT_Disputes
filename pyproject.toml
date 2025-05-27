@@ -21,3 +21,4 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["model", "model.*"]
+exclude = ["nn_input_data*", "nn_preprocessing*"]

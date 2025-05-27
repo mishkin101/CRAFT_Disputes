@@ -4,3 +4,5 @@ n_input_data
 saved_models
 *corpora
 /nn_input_data/wikiconv
+craft_disputes.egg-info
+
