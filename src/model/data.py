@@ -261,3 +261,11 @@ def createTrainFile():
                     fp.write(json.dumps(dialog_json) + "\n")
 
     print(f"Pre‐training file written to {out_path}")
+
+
+"custom Pre-training/fine-tuning split for Kodis."
+"Add meta.pre-train tag to the conversations that are used for pre-training."
+"need to determine size of test-set"
+def createTrainValSplit():
+    "split first into valid and non-valid data (Human-AI disputes= Valid). Take "
+    return
