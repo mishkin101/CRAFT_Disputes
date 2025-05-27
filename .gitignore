@@ -10,3 +10,4 @@ craft_disputes.egg-info
 uv.lock
 .venv
 /test
+/saved_models_deep/custom/custom
