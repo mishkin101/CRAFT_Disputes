@@ -1,5 +1,6 @@
 import os.path
 from pathlib import Path
+from convokit import Corpus
 
 # get the absolute path to the repository so we don't have to deal with relative paths
 repo_dir = Path(__file__).parent.parent.absolute()
@@ -22,11 +23,17 @@ label_metadata = "conversation_has_personal_attack" if corpus_name == "wikiconv"
 # it. For custom datasets it is fine to leave this as None.
 utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None
 
+pretrain_corpora = "corpora" # Name of the directory where the ConvoKit corpus objects will be saved. This is used by the
+
 # define file locations
 save_dir = os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
 train_path = os.path.join(repo_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
 word2index_path = os.path.join(repo_dir, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
 index2word_path = os.path.join(repo_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
+
+#saved locations for corpus objects:
+corpus_dir = os.path.join(repo_dir, "nn_preprocessing", corpus_name, pretrain_corpora) # Where to save the ConvoKit corpus object
+
 
 # Configure model architecture parameters
 attn_model = 'general'
@@ -55,3 +62,7 @@ PAD_token = 0  # Used for padding short sentences
 SOS_token = 1  # Start-of-sentence token
 EOS_token = 2  # End-of-sentence token
 UNK_token = 3  # Unknown word token
+
+
+if __name__ == "__main__":
+   print(repo_dir)

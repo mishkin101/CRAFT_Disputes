@@ -236,3 +236,27 @@ def batchIterator(voc, source_data, batch_size, shuffle=True):
         batch_tensors = batch2TrainData(voc, batch, already_sorted=True)
         yield (batch_tensors, batch_dialogs, batch_labels, true_batch_size) 
         cur_idx += batch_size
+
+
+"custom Pre-training Utilities"
+def createTrainFile():
+    out_dir = os.path.join(repo_dir, "nn_input_data", corpus_name)
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "train_processed_dialogs.txt")
+    
+    with open(out_path, "w") as fp:
+        for entry in os.listdir(corpus_dir):
+            corpus_path = os.path.join(corpus_dir, entry)
+            if not os.path.isdir(corpus_path):
+                continue
+
+            print(f"Pre‐training: loading {entry} …")
+            ck_corpus = Corpus(filename=corpus_path)
+
+            # for each conversation, pull every root→leaf reply‐chain
+            for convo in ck_corpus.iter_conversations():
+                for dialog in convo.get_root_to_leaf_paths():
+                    dialog_json = [{"text": utt.text} for utt in dialog]
+                    fp.write(json.dumps(dialog_json) + "\n")
+
+    print(f"Pre‐training file written to {out_path}")
