@@ -9,3 +9,4 @@ craft_disputes.egg-info
 .pytest_cache
 uv.lock
 .venv
+/test

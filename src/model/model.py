@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
-from config import *
+from .config import *
 
 
 class EncoderRNN(nn.Module):
