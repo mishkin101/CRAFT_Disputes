@@ -544,18 +544,13 @@ craft = [
 [[package]]
 name = "craft-disputes"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "bitsandbytes" },
     { name = "convokit", extra = ["craft"] },
     { name = "emoji" },
     { name = "ipykernel" },
     { name = "pytest" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ipykernel" },
 ]
 
 [package.metadata]
@@ -566,9 +561,6 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "pytest", specifier = ">=8.3.5" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ipykernel", specifier = ">=6.29.5" }]
 
 [[package]]
 name = "cycler"

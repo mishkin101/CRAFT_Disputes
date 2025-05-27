@@ -6,3 +6,6 @@ saved_models
 /nn_input_data/wikiconv
 craft_disputes.egg-info
 
+.pytest_cache
+uv.lock
+.venv
