@@ -1,25 +1,22 @@
 
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "craft-disputes"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "bitsandbytes==0.42.0",
+ "bitsandbytes==0.42.0",
     "convokit[craft]>=3.1.0",
     "emoji>=1.7.0",
     "ipykernel>=6.29.5",
     "pytest>=8.3.5",
 ]
 
-[dependency-groups]
-dev = [
-    "ipykernel>=6.29.5",
-]
-
-[tool.setuptools]
-package-dir = {"" = "src"}
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.setuptools.packages.find]
 where = ["src"]
