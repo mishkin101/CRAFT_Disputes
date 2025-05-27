@@ -1,3 +1,4 @@
+
 [project]
 name = "craft-disputes"
 version = "0.1.0"
@@ -5,5 +6,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "httpx>=0.20",
+    "bitsandbytes==0.42.0",
+    "convokit[craft]>=3.1.0",
+    "emoji>=1.7.0",
+    "ipykernel>=6.29.5",
+    "pytest>=8.3.5",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
+

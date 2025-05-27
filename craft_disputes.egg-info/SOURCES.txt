@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+craft_disputes.egg-info/PKG-INFO
+craft_disputes.egg-info/SOURCES.txt
+craft_disputes.egg-info/dependency_links.txt
+craft_disputes.egg-info/requires.txt
+craft_disputes.egg-info/top_level.txt
+model/config.py
+model/data.py
+model/model.py
+tests/test_data.py

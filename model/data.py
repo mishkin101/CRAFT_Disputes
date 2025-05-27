@@ -4,8 +4,9 @@ import itertools
 import random
 import json
 import unicodedata
+from convokit import Corpus
 
-from .config import *
+from config import *
 
 class Voc:
     def __init__(self, name, word2index=None, index2word=None):

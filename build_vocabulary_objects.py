@@ -1,34 +1,20 @@
 import unicodedata
 import json
 import os
-import nltk.tokenize
+import regex
 from collections import Counter
 from multiprocessing import Pool
 from pathlib import Path
+import emoji
 
 from model.config import *
+from model.data import *
 
 VOCAB_SIZE = 50000
 NUM_CHUNKS = 200
 
-# Turn a Unicode string to plain ASCII, thanks to
-# https://stackoverflow.com/a/518232/2809427
-def unicodeToAscii(s):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-    )
-
-def tokenize(text):
-    tokenizer = nltk.tokenize.RegexpTokenizer(pattern=r'\w+|[^\w\s]')
-    # simplify the problem space by considering only ASCII data
-    cleaned_text = unicodeToAscii(text.lower())
-
-    # if the resulting string is empty, nothing else to do
-    if not cleaned_text.strip():
-        return []
-    
-    return tokenizer.tokenize(cleaned_text)
+def detect_emojis(tok):
+    return tok in emoji.EMOJI_DATA and not tok.isdigit()
 
 def count_tokens_in_chunk(idx, chunk):
     print("Processing chunk", idx)
@@ -37,11 +23,14 @@ def count_tokens_in_chunk(idx, chunk):
     for dialog in chunk:
         for utterance in dialog:
             tokens = tokenize(utterance["text"])
+            for tok in tokens:
+                # Remove emojis
+                if detect_emojis(tok):
+                    tok = "UNK"  # Replace with UNK token
             counts += Counter(tokens)
-
     return counts
 
-def main():
+def build_Vocab():
     print("Loading training dataset...")
     with open(os.path.join(repo_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt")) as fp:
         dialogs = [json.loads(line) for line in fp]
@@ -76,4 +65,4 @@ def main():
         json.dump(index2word, fp)
 
 if __name__ == "__main__":
-    main()
+    build_Vocab()

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "craft-disputes"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bitsandbytes==0.42.0",
+    "convokit[craft]>=3.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "craft-disputes",
+    "pytest>=8.3.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["model", "model.*"]
+
+[tool.uv.sources]
+craft-disputes = { workspace = true }
+
+[tool.uv]
+package = true

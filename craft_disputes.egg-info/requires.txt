@@ -1,0 +1,2 @@
+bitsandbytes==0.42.0
+convokit[craft]>=3.1.0
