@@ -109,10 +109,16 @@ def processDialog(voc, dialog):
 
 12. build hyper-parameter tuning with parallelization
  *** FIND GOOD PACKAGE TO MANAGE MONITORING TRAINING ***
-    - use Optuna to tune hyper-parameters
-    - use Ray Tune to parallelize hyper-parameter tuning
+    - use Optuna to tune hyper-parameters and parallelize
     - save best hyper-parameters to "experiments" directory
 
+13. us MLFlow to manage the training pipeline
+    - use MLFow to track experiments, hyper-parameters, and results
+    - save model artifacts to MLFow server
+    - log training history, validation history, and test history to MLFow server
+ *** FIND GOOD PACKAGE TO MANAGE MONITORING TRAINING ***
+    - use Optuna to tune hyper-parameters and parallelize
+    - save best hyper-parameters to "experiments" directory
 
 11. Build and create Fine-tuning harness:
     - add command line flags to run an experiment confirguation with:
