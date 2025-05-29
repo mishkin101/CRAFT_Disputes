@@ -26,3 +26,4 @@ language = 'English'
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+
