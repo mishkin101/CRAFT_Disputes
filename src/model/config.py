@@ -21,20 +21,21 @@ label_metadata = "conversation_has_personal_attack" if corpus_name == "wikiconv"
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
-utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None
-
-pretrain_corpora = "corpora" # Name of the directory where the ConvoKit corpus objects will be saved. This is used by the
+utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None # Name of the directory where the pre-processing files will be saved. This is used by the
+corpora = "corpora" # Name of the directory where the ConvoKit corpus objects will be saved. This is used by the
 
 # define file locations
+data = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
 save_dir = os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
-train_path = os.path.join(repo_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
-word2index_path = os.path.join(repo_dir, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
-index2word_path = os.path.join(repo_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
+train_path = os.path.join(data, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
+word2index_path = os.path.join(data, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
+index2word_path = os.path.join(data, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
 
 #saved locations for corpus objects:
-corpus_dir = os.path.join(repo_dir, "nn_preprocessing", corpus_name, pretrain_corpora) # Where to save the ConvoKit corpus object
-
-
+corpus_dir = os.path.join(data, corpora) # Where to save the ConvoKit corpus object
+#saved direcory for fine-tuning data:
+fine_raw_dir = os.path.join(data, "fine-tuning-preprocessing", "raw") # Where to save the raw data files
+fine_processed_dir = os.path.join(data, "fine-tuning-preprocessing", "processed") # Where to save the processed data files
 # Configure model architecture parameters
 attn_model = 'general'
 MAX_LENGTH = 80  # Maximum sentence length to consider
@@ -56,6 +57,7 @@ labeled_learning_rate = 1e-5 # Learning rate to use during fine-tuning
 decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
 forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
+## fine-tuning hyper-parameters:
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences

@@ -11,3 +11,7 @@ uv.lock
 .venv
 /test
 /saved_models_deep/custom/custom
+casino
+deal_no_deal
+kodis
+train_processed_dialogs.txt
