@@ -16,26 +16,42 @@ corpus_name = "custom" # Name of the dataset to run CRAFT on. This is not direct
 # Note that the if-statement in the default value is only there to enable users to switch to the CMV data by only
 # changing the corpus_name (rather than having to directly change label_metadata as well). If you are using a custom
 # corpus, then of course the if-statement is not needed and you can just directly put the name of the metadata
+
 # field in your corpus that you want to use as the label.
-label_metadata = "conversation_has_personal_attack" if corpus_name == "wikiconv" else "has_removed_comment"
+if corpus_name == "wikiconv":
+   label_metadata = "conversation_has_personal_attack" 
+if corpus_name == "cmv":
+   label_metadata = "has_personal_attack" 
+else:
+   label_metadata = "provided_outcome" 
+
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
 utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None # Name of the directory where the pre-processing files will be saved. This is used by the
-corpora = "corpora" # Name of the directory where the ConvoKit corpus objects will be saved. This is used by the
+
+# Name of the directory where the ConvoKit corpus objects will be saved. 
+corpora = "corpora" 
 
 # define file locations
-data = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
+data_dir = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
 save_dir = os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
-train_path = os.path.join(data, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
-word2index_path = os.path.join(data, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
-index2word_path = os.path.join(data, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
+train_path = os.path.join(data_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
+word2index_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
+index2word_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
 
 #saved locations for corpus objects:
-corpus_dir = os.path.join(data, corpora) # Where to save the ConvoKit corpus object
+corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
 #saved direcory for fine-tuning data:
-fine_raw_dir = os.path.join(data, "fine-tuning-preprocessing", "raw") # Where to save the raw data files
-fine_processed_dir = os.path.join(data, "fine-tuning-preprocessing", "processed") # Where to save the processed data files
+fine_raw_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "raw") # Where to save the raw data files
+fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "processed") # Where to save the processed data files
+
+#phrases to exlude from pretraining:
+pretrain_exclude_phrases = []
+
+#phrases to exlude from fine-tuning:
+pretrain_exclude_phrases = []
+
 # Configure model architecture parameters
 attn_model = 'general'
 MAX_LENGTH = 80  # Maximum sentence length to consider
@@ -57,7 +73,12 @@ labeled_learning_rate = 1e-5 # Learning rate to use during fine-tuning
 decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
 forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
-## fine-tuning hyper-parameters:
+
+# Optimizer parameters
+patience = 5
+factor = .1
+threshold = 0.0001
+mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences

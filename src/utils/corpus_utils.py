@@ -2,6 +2,7 @@ import re
 import pandas as pd
 from convokit import Corpus, Speaker, Utterance, Conversation
 from IPython.display import display
+from model.config import *
 
 utterance_headers = ["id", "speaker", "conversation_id", "reply_to", "timestamp", "text"]
 utterance_metadata = None
@@ -48,7 +49,7 @@ def convertHeaders(df, corpus_type):
             df = prepend_meta(df, utterance_metadata)
         else:
             df = df[utterance_headers]
-        df = df.fillna(None)
+        df = df.where(pd.notnull(df), None)
         return df
     
     if corpus_type.lower() == 'conversation':
@@ -58,7 +59,7 @@ def convertHeaders(df, corpus_type):
             df =prepend_meta(df, conversation_metadata)
         else:
             df = df[conversation_headers]
-        df = df.fillna(None)
+        df = df.where(pd.notnull(df), None)
         return df
 
     if corpus_type.lower() == 'speaker':
@@ -69,7 +70,7 @@ def convertHeaders(df, corpus_type):
             df = prepend_meta(df,speaker_metadata)
         else:
             df = df[speaker_headers]
-        df = df.fillna(None)
+        df = df.where(pd.notnull(df), None)
         return df
 
 def setReplyTo(df):
@@ -153,7 +154,6 @@ def clean_corpus_timestamps(utts, speakers, convos):
     convos   = convos[convos['id'].isin(used_convos)].reset_index(drop=True)
 
     return utts, speakers, convos
-
 
 def corpusBuilder(data):
     utts, convo_mapping =buildUtteranceDF(data.getUtterancesDF())

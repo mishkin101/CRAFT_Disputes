@@ -241,7 +241,7 @@ def batchIterator(voc, source_data, batch_size, shuffle=True):
 
 "custom Pre-training Utilities"
 def createTrainFile():
-    out_dir = os.path.join(repo_dir, "nn_input_data", corpus_name)
+    out_dir = os.path.join(data_dir, "nn_input_data", corpus_name)
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, "train_processed_dialogs.txt")
     
@@ -257,7 +257,9 @@ def createTrainFile():
             # for each conversation, pull every root→leaf reply‐chain
             for convo in ck_corpus.iter_conversations():
                 for dialog in convo.get_root_to_leaf_paths():
-                    dialog_json = [{"text": utt.text} for utt in dialog]
+                    for utt in dialog:
+                        if utt.text not in pretrain_exclude_phrases:
+                            dialog_json = [{"text": utt.text}]
                     fp.write(json.dumps(dialog_json) + "\n")
 
     print(f"Pre‐training file written to {out_path}")
@@ -269,3 +271,56 @@ def createTrainFile():
 def createTrainValSplit():
     "split first into valid and non-valid data (Human-AI disputes= Valid). Take "
     return
+
+
+def preprocess_utterances(utt_df, voc):
+    utt_df = utt_df.copy()
+    utt_df["tokens"] = (utt_df["text"].map(tokenize) #-> tokens for eack text
+        .map(lambda toks: [t if t in voc.word2index else "UNK" for t in toks])
+    )
+    if utt_label_metadata is None:
+        utt_df["is_attack"] = 0
+    else:
+        utt_df["is_attack"] = (utt_df[utt_label_metadata].fillna(0).astype(int))
+    return utt_df
+
+def load_pairs(voc,utt_df, conv_df, last_only: bool = False):
+    """
+    Returns (train_pairs, val_pairs, test_pairs), where each is a list of
+    (context: List[List[str]], reply: List[str], label: int, comment_id: str).
+    """
+    utts = preprocess_utterances(utt_df, voc)
+
+    # Prepare split IDs
+    splits = {}
+    for split in ("train", "val", "test"):
+        ids = conv_df.index[conv_df["split"] == split].unique()
+        splits[split] = set(ids)
+
+
+    def make_pairs_for_split(ids_set):
+        pairs = []
+        for convo_id, dialog_df in utts[utts["conversation_id"].isin(ids_set)] \
+                                   .groupby("conversation_id", sort=False):
+            dialog_df['utt_id'] = dialog_df.index
+            dialog = dialog_df[["tokens", "is_attack", 'utt_id']].to_dict("records")
+            if utt_label_metadata is None and dialog:
+                last_id = dialog[-1]["utt_id"]
+                conv_label = conv_df.at[convo_id, label_metadata]
+                dialog.append({
+                    "tokens": ["UNK"],
+                    "is_attack": conv_label,
+                    "utt_id": f"{last_id}_dummyreply"
+                })
+            idxs = [len(dialog) - 1] if last_only else range(1, len(dialog))
+            for idx in idxs:
+                context = [u["tokens"][: MAX_LENGTH - 1] for u in dialog[max(0, idx - CONTEXT_SIZE) : idx]]
+                reply     = dialog[idx]["tokens"][: MAX_LENGTH - 1]
+                label     = dialog[idx]["is_attack"]
+                comment_id = dialog[idx - 1]["utt_id"]
+                pairs.append((context, reply, label, comment_id))
+        return pairs
+    train_pairs = make_pairs_for_split(splits["train"])
+    val_pairs   = make_pairs_for_split(splits["val"])
+    test_pairs  = make_pairs_for_split(splits["test"])
+    return train_pairs, val_pairs, test_pairs
