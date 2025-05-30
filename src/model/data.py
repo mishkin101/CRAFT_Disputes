@@ -257,9 +257,10 @@ def createTrainFile():
             # for each conversation, pull every root→leaf reply‐chain
             for convo in ck_corpus.iter_conversations():
                 for dialog in convo.get_root_to_leaf_paths():
+                    dialog_json = []
                     for utt in dialog:
                         if utt.text not in pretrain_exclude_phrases:
-                            dialog_json = [{"text": utt.text}]
+                            dialog_json.append({"text": utt.text})
                     fp.write(json.dumps(dialog_json) + "\n")
 
     print(f"Pre‐training file written to {out_path}")

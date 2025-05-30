@@ -12,6 +12,7 @@ from convokit import Corpus
 
 import model.config as cfg
 from runners.build_vocabulary_objects import build_Vocab
+from runners import build_vocabulary_objects
 
 
 class DummyUtterance:
@@ -48,7 +49,11 @@ def isolate_cwd(tmp_path, monkeypatch):
     fake_root = tmp_path / "fake_corpora"
     (fake_root / "one").mkdir(parents=True)
     (fake_root / "two").mkdir()
+    out_dir = tmp_path / "data" / "mycorp"
+    out_dir.mkdir(parents=True)
     monkeypatch.setattr(data, "corpus_dir", str(fake_root),   raising=False)
+    monkeypatch.setattr(cfg, "word2index_path",str(out_dir / "word2index.json"),raising=False)
+    monkeypatch.setattr(cfg, "index2word_path",str(out_dir / "index2word.json"),raising=False)
     return tmp_path
 
 
@@ -59,18 +64,23 @@ def use_real_custom_corpora(tmp_path, monkeypatch):
     and override the module-level paths so that createTrainFile()
     reads from it and writes under tmp_path.
     """
+    monkeypatch.chdir(tmp_path)
     project_root = Path(__file__).parents[1]
-    src = project_root / "nn_preprocessing" / "custom" / "corpora"
-    dst = tmp_path / "nn_preprocessing" / "custom" / "corpora"
+    src = project_root /"data"/  "corpora" / "custom"
+    dst = tmp_path  /"data"/  "corpora" / "custom"
     for name in ("casino_corpus", "deal_no_deal_corpus", "kodis_corpus"):
         shutil.copytree(src / name, dst / name)
 
-    monkeypatch.chdir(tmp_path)
+    
     monkeypatch.setattr(data,   "repo_dir",    str(tmp_path), raising=False)
     monkeypatch.setattr(data,   "corpus_name", "custom",     raising=False)
     monkeypatch.setattr(data,   "corpus_dir",  str(dst),       raising=False)
     monkeypatch.setattr(cfg, "corpus_name", "custom",     raising=False)
     monkeypatch.setattr(cfg, "corpus_dir",  str(dst),       raising=False)
+    monkeypatch.setattr(data, "data_dir",  str(tmp_path / "data"),       raising=False)
+
+    monkeypatch.setattr(cfg, "word2index_path", str(dst / "word2index.json"),raising=False)
+    monkeypatch.setattr(cfg, "index2word_path",str(dst / "index2word.json"),raising=False)
     return tmp_path
 
 @pytest.fixture()
@@ -95,6 +105,32 @@ def test_tokenize_basic():
     tokens = tokenize(text)
     assert tokens == ["hello", ",", "world", "!"]
 
+@pytest.fixture
+def fake_vocab_workspace(tmp_path, monkeypatch):
+    # 1) choose a fake data root
+    data_root = tmp_path / "data"
+    # 2) create the input dir
+    in_dir = data_root / "nn_input_data" / "mycorp"
+    in_dir.mkdir(parents=True)
+
+    # 3) copy your real train file there
+    project_root = Path(__file__).parents[2]
+    real_train = project_root /"src"/"data"/ "nn_input_data" / "custom" / "train_processed_dialogs_testing.txt"
+    content = real_train.read_text()
+    (in_dir / "train_processed_dialogs.txt").write_text(content)
+
+    # 4) patch config so build_Vocab reads from this fake location
+    monkeypatch.setattr(cfg, "data_dir", str(data_root), raising=False)
+    monkeypatch.setattr(cfg, "corpus_name", "mycorp", raising=False)
+
+    # 5) prepare the output dir and patch the output paths
+    out_dir = data_root / "nn_preprocessing" / "mycorp"
+    out_dir.mkdir(parents=True)
+    monkeypatch.setattr(cfg,
+        "word2index_path", str(out_dir / "word2index.json"), raising=False)
+    monkeypatch.setattr(cfg,
+        "index2word_path", str(out_dir / "index2word.json"), raising=False)
+    return data_root
 
 def test_tokenize_emojis():
     text = (
@@ -121,7 +157,7 @@ def test_voc_add_and_trim_with_tokens():
     assert voc.num_words == 5
 
 
-def test_create_train_file(monkeypatch, isolate_cwd):
+def test_create_train_file(isolate_cwd, monkeypatch):
     # patch Corpus to return two dummy convos
     dialogs1 = [[DummyUtterance("a"), DummyUtterance("b")]]
     dialogs2 = [[DummyUtterance("c")]]
@@ -131,9 +167,9 @@ def test_create_train_file(monkeypatch, isolate_cwd):
                         raising=True)
 
     # run & assert
+    monkeypatch.setattr(data, "data_dir", str(isolate_cwd / "data"), raising=False)
     data.createTrainFile()
-    out_dir  = isolate_cwd / "nn_input_data" / "mycorp"
-    out_file = out_dir / "train_processed_dialogs.txt"
+    out_file = Path(isolate_cwd) / "data" / "nn_input_data" / "mycorp" / "train_processed_dialogs.txt"
     assert out_file.exists()
     lines = out_file.read_text().splitlines()
     assert len(lines) == 4
@@ -182,28 +218,29 @@ def test_corpus_root_to_leaf_paths(monkeypatch):
 
 
 @pytest.mark.usefixtures("use_real_custom_corpora")
-def test_create_train_file_with_real_corpora(isolate_cwd):
+def test_create_train_file_with_real_corpora(use_real_custom_corpora):
     # this test gets a temporary copy of the real corpora,
     # then calls createTrainFile() against it
-    createTrainFile(cfg.pretrain_exclude_phrases)
-    out_file = isolate_cwd / "nn_input_data" / "custom" / "train_processed_dialogs.txt"
+    data.createTrainFile()
+    out_file = Path(use_real_custom_corpora /"data" / "nn_input_data" / "custom" / "train_processed_dialogs.txt")
     assert out_file.exists()
     print("Train file written to:", out_file)
     lines = out_file.read_text().splitlines()
     print("Preview:\n", "\n".join(lines[:5]) + ("\n..." if len(lines)>5 else ""))
 
-
-def test_build_vocab_over_real_custom_data(isolate_cwd, use_real_train_data, capsys):
+@pytest.mark.usefixtures("fake_vocab_workspace")
+def test_build_vocab_over_real_custom_data(fake_vocab_workspace,capsys):
     build_Vocab()
-    out_dir = isolate_cwd / "nn_preprocessing" / "custom"
-    w2i = out_dir / "word2index.json"
-    i2w = out_dir / "index2word.json"
+    # out_dir = use_real_custom_corpora / "nn_preprocessing" / "custom" / "corpora"
+    i2w = Path(cfg.index2word_path)
+    w2i = Path(cfg.word2index_path)
     assert w2i.exists(), f"{w2i} was not created"
     assert i2w.exists(), f"{i2w} was not created"
     word2index = json.loads(w2i.read_text())
     index2word = json.loads(i2w.read_text())
     assert len(word2index) > 10, "Expected at least 10 entries in word2index.json"
     assert len(index2word) > 10, "Expected at least 10 entries in index2word.json"
-    print(f"\nVocabulary files written to: {out_dir}")
+    # print(f"\nVocabulary files written to: {out_dir}")
     sample = list(word2index.items())[:5]
+    print("index2word file written to: ", i2w)
     print("First few entries of word2index:", sample)

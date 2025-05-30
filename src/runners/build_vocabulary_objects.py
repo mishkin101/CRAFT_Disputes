@@ -7,7 +7,7 @@ from multiprocessing import Pool
 from pathlib import Path
 import emoji
 
-from model.config import *
+import model.config as cfg
 from model.data import *
 
 VOCAB_SIZE = 50000
@@ -32,7 +32,7 @@ def count_tokens_in_chunk(idx, chunk):
 
 def build_Vocab():
     print("Loading training dataset...")
-    with open(os.path.join(data_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt")) as fp:
+    with open(os.path.join(cfg.data_dir, "nn_input_data", cfg.corpus_name, "train_processed_dialogs.txt")) as fp:
         dialogs = [json.loads(line) for line in fp]
     
     chunk_size = len(dialogs) // NUM_CHUNKS
@@ -57,12 +57,13 @@ def build_Vocab():
         word2index[token] = num_words
         index2word[num_words] = token
         num_words += 1
-
+    
     print("Dumping")
-    with open(word2index_path, "w") as fp:
+    with open(cfg.word2index_path, "w") as fp:
         json.dump(word2index, fp)
-    with open(index2word_path, "w") as fp:
+    with open(cfg.index2word_path, "w") as fp:
         json.dump(index2word, fp)
+    print(f"Vocab file written to {word2index_path}")
 
 if __name__ == "__main__":
     build_Vocab()
