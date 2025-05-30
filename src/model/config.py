@@ -74,16 +74,23 @@ decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
 forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
 
-# Optimizer parameters
+#optimizer:
+# Optimizer to use, options: 'adam', 'sgd', 'adagrad', etc
+optimizer_type = 'adam'  
 patience = 5
 factor = .1
 threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 
 #Paramaters to handle data imbalance stratgey
-# Imbalance handling strategy. Options: "default", "oversample", "undersample", "weighted"
+# Imbalance handling strategy. Options: "default", "stratified", "downsampling, "weighted"
 Imbalance_handling = "default"
 
+#Parameters for loss function:
+loss_function = 'bce'  # Loss function to use, options: 'bce' for binary cross-entropy, 'mse' for mean squared error
+
+#type of device
+device = "cuda" 
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences

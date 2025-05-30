@@ -294,7 +294,8 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
         splits[split] = set(ids)
         # print(f"Split {split} has {ids} conversations")
 
-
+    """***//TODO: #2 make this more generic, so that it can be used for anytpe of label***"""
+    #TODO: #3 Testing issue creation
     def make_pairs_for_split(ids_set, last_only):
         pairs = []
         for convo_id, dialog_df in utts[utts["conversation_id"].isin(ids_set)].groupby("conversation_id", sort=False):

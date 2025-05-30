@@ -24,15 +24,57 @@ DEFAULT_CONFIG = {
     "validation_size": 0.2,
 }
 
+"""Main inference piepeline implementing CRAFT"""
+class CraftPipeline(nn.Module):
+    """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
+    def __init__(self, encoder, context_encoder, classifier, voc, loss_function, predictor, predict_flag):
+        super(CraftPipeline, self).__init__()
+        self.encoder =encoder
+        self.voc = voc
+        self.context_encoder = context_encoder
+        self.classifier = classifier
+        self.predictor = predictor
+        self.loss_function = loss_function
+        self.predict_mode = predict_flag
+
+        
+    def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, max_length):
+        _, utt_encoder_hidden = self.encoder(input_batch, utt_lengths)
+        context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
+        context_encoder_outputs, context_encoder_hidden = self.context_encoder(context_encoder_input, dialog_lengths)
+        logits = self.classifier(context_encoder_outputs, dialog_lengths)
+        if self.predict_flag:
+            self._predict(logits)
+        else:
+            self._updateloss(logits)
+
+    def _predict(self, logits):
+        predictions = self.predictor(logits)
+        return predictions
+    def _updateloss(self, logits, labels):
+        loss = self.loss_function(logits, labels)
+        return loss
+    def _setmode(self):
+        if self.predict_mode:
+            self.encoder.train()
+            self.context_encoder.train()
+            self.attack_clf.train()
+        else:
+            self.encoder.eval()
+            self.context_encoder.eval()
+            self.attack_clf.eval() 
+
+
+    
 """Load Device"""
-def loadDevice(type='cuda'):
-    if type == 'cuda' and torch.cuda.is_available():
+def loadDevice():
+    if device == 'cuda' and torch.cuda.is_available():
         return torch.device('cuda')
     else:
         return torch.device('cpu')
 
 """Load Pretrained Model"""
-def loadPretrainedModel(device):
+def loadPretrainedModel():
     model_path = os.path.join(save_dir, "model.tar")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
@@ -51,7 +93,7 @@ def createClassifierHead(class_type = 'single_target'):
     return
 
 """Build Contect encoder, decoder, and classifier"""
-def loadCheckpoint(checkpoint, device, classifier_type = 'single_target', mode = 'train'):
+def loadCheckpointandMode(checkpoint, device, classifier_type = 'single_target', mode = 'train'):
     # Instantiate your modules
     voc             = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
     embedding       = nn.Embedding(voc.num_words, hidden_size)
@@ -66,18 +108,22 @@ def loadCheckpoint(checkpoint, device, classifier_type = 'single_target', mode =
     context_encoder.load_state_dict(checkpoint['ctx'])
     voc.__dict__ = checkpoint['voc_dict']
     # Move to device
-    encoder         = encoder.to(device)
-    context_encoder = context_encoder.to(device)
-    attack_clf      = attack_clf.to(device)
-    if mode == 'train':
-            encoder.train()
-            context_encoder.train()
-            attack_clf.train()
-    else:
-            encoder.eval()
-            context_encoder.eval()
-            attack_clf.eval()  
+    toDevice([encoder,context_encoder, attack_clf])
     return embedding, encoder, context_encoder, attack_clf, voc
+
+"""Convert Tensor to Device"""
+def toDevice(tensor):
+        if isinstance(tensor, torch.Tensor):
+            tensor = tensor.to(device)
+        elif isinstance(tensor, (list, tuple)):
+             for t in tensor:
+                t = toDevice(t, device)
+        elif isinstance(tensor, dict):
+            for v in tensor.values():
+                  v  = toDevice(v, device) 
+        else:
+            raise TypeError(f"Unsupported type: {type(tensor)}")
+
 
 
 """Compute training Iterations"""
@@ -87,27 +133,75 @@ def computerIterations(train_pairs):
     return n_iter_per_epoch, n_iteration
 
 """Create Optimizers and schedulers for training"""
-def createOptimizer(models, type='adam'):
-    if type == 'adam':
+def setOptimizer(models):
+    if optimizer_type == 'adam':
         optimizer = torch.optim.Adam(models.parameters(), lr=learning_rate)
-    elif type == 'sgd': 
+    elif optimizer_type == 'sgd': 
         optimizer = torch.optim.SGD(models.parameters(), lr=learning_rate, momentum=0.9)
     opt_and_sched = OptimizerWithScheduler(models=models, optimizer=optimizer)
     return opt_and_sched
 
-"""training harness"""
+"""Create loss funciton for training batch"""
+def setLossFunction():
+    if loss_function == 'bce':
+         return nn.BCEWithLogitsLoss()
+
+
+
+"""
+Training Harness
+Parameters:
+    M: int, number of utterances in the batch   
+    input_variable: tensorized input utterances for all contexts in a batch: (max_tokenized_length, M)
+    dialog_lengths: tensor of dialog lengths for each utterance in the batch:  (batch_size, )
+    dialog_lengths_list: list of dialog lengths for each utterance in the batch: [dialog_length_1, dialog_length_2, ...]
+    utt_lengths: tensor of utterance lengths for each utterance in the batch: (M, )
+    batch_indices: tensor of batch indices for each utterance in the batch: (M, )
+    dialog_indices: tensor of dialog indices for each utterance in the batch: (M, )
+    labels: tensor of labels for each context in the batch: (max_tokenized_length, batch_size)
+"""
+
 def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, # input/output arguments
-          encoder, context_encoder, attack_clf,                                                                    # network arguments
-          encoder_optimizer, context_encoder_optimizer, attack_clf_optimizer,                                      # optimization arguments
-          batch_size, clip, max_length=MAX_LENGTH):  
-    return                                                              # misc arguments
+          encoder, context_encoder, attack_clf,                                                                    # optimization arguments
+          optimizerCalc, lossCalc):                                                                                 # network arguments      
+    #set to device options
+    toDevice([input_variable, dialog_lengths, utt_lengths, labels])
+    #First, we run the utterance tensors called (max_tokenized_length, M) to create utterance contexts
+    """ Data: (max_tokenized_length, M, 500) -> X(max_tokenized_length, M, 500)
+        Hidden: (2*2, M, 500)                  -> (2*2, M, 500) """
+    _, utt_encoder_hidden = encoder(input_variable, utt_lengths)
+    #Second, regroup the utterance's hidden states  into their respective dialogues
+    """ Data:   (2*2, M, 500)                  -> X(max_convo_length, batch_size, 500)"""
+    context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
+    #Third, create the context encodings from the utterance states
+    """ Data:   (max_dial_length, batch_size, 500)    -> (max_convo_length, batch_size, 500)
+        Hidden: (2*1, M, 500)                         -> X(2*1, M, 500) """
+    context_encoder_outputs, _ = context_encoder(context_encoder_input, dialog_lengths) 
+    #make a pass through the classifier to get final logits for each conversation
+    """(max_convo_length, batch_size, 500) -> ( batch_size, 1)"""
+    logits = attack_clf(context_encoder_outputs, dialog_lengths)
+    #update the loss each training iteration
+    loss = lossCalc(logits,labels)
+    optimizerCalc.batchStep(loss)
+    return loss.item()
+
+def evaluateBatch(predictor, input_batch, dialog_lengths, 
+                  dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
+    # Set device options
+    toDevice([input_batch, dialog_lengths, utt_lengths])
+    # Predict future attack using predictor
+    scores = predictor(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, max_length)
+    predictions = (scores > 0.5).float()
+    return predictions, scores
+    
+                                                        
 
 
 
 
 """*** MODIFY patience and factor if needed**"""
 def load_corpus_objects():
-
+    return
   
 
 

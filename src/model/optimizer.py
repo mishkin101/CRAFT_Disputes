@@ -18,7 +18,7 @@ class OptimizerWithScheduler:
         )
         self.clip = clip
 
-    def batch_step(self, loss):
+    def batchStep(self, loss):
         """Call this once per training batch."""
         for model in self.models:
             self.optimizer.zero_grad()
@@ -26,7 +26,7 @@ class OptimizerWithScheduler:
             torch.nn.utils.clip_grad_norm_(self.optimizer.parameters(), self.clip)
             self.optimizer.step()
 
-    def epoch_step(self, val_score):
+    def epochStep(self, val_score):
         """Call this once per validation epoch."""
         for model in self.models:
             self.scheduler.step(val_score)
