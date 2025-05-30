@@ -51,7 +51,7 @@ def createClassifierHead(class_type = 'single_target'):
     return
 
 """Build Contect encoder, decoder, and classifier"""
-def loadCheckpoint(checkpoint, device, classifier_type = 'single_target'):
+def loadCheckpoint(checkpoint, device, classifier_type = 'single_target', mode = 'train'):
     # Instantiate your modules
     voc             = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
     embedding       = nn.Embedding(voc.num_words, hidden_size)
@@ -69,11 +69,14 @@ def loadCheckpoint(checkpoint, device, classifier_type = 'single_target'):
     encoder         = encoder.to(device)
     context_encoder = context_encoder.to(device)
     attack_clf      = attack_clf.to(device)
-
-    #set to train mode
-    encoder.train()
-    context_encoder.train()
-    attack_clf.train()
+    if mode == 'train':
+            encoder.train()
+            context_encoder.train()
+            attack_clf.train()
+    else:
+            encoder.eval()
+            context_encoder.eval()
+            attack_clf.eval()  
     return embedding, encoder, context_encoder, attack_clf, voc
 
 
@@ -92,39 +95,21 @@ def createOptimizer(models, type='adam'):
     opt_and_sched = OptimizerWithScheduler(models=models, optimizer=optimizer)
     return opt_and_sched
 
-"""train"""
+"""training harness"""
+def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, # input/output arguments
+          encoder, context_encoder, attack_clf,                                                                    # network arguments
+          encoder_optimizer, context_encoder_optimizer, attack_clf_optimizer,                                      # optimization arguments
+          batch_size, clip, max_length=MAX_LENGTH):  
+    return                                                              # misc arguments
 
 
 
 
 """*** MODIFY patience and factor if needed**"""
-def load_corpus_objects(utterance_path, conversation_path):
-    """
-    Load utterance and conversation dataframes from disk.
-    """
-    utt_df = pd.read_csv(utterance_path)
-    conv_df = pd.read_csv(conversation_path)
-    return utt_df, conv_df
+def load_corpus_objects():
 
-def processDialog(voc, dialog):
-    processed = []
-    for utterance in dialog.iter_utterances():
-        # skip the section header, which does not contain conversational content
-        if corpus_name == 'wikiconv' and utterance.meta['is_section_header']:
-            continue
-        tokens = tokenize(utterance.text)
-        # replace out-of-vocabulary tokens
-        for i in range(len(tokens)):
-            if tokens[i] not in voc.word2index:
-                tokens[i] = "UNK"
-        processed.append({"tokens": tokens, "is_attack": int(utterance.meta[utt_label_metadata]) if utt_label_metadata is not None else 0, "id": utterance.id})
-    if utt_label_metadata is None:
-        # if the dataset does not come with utterance-level labels, we assume that (as in the case of CMV)
-        # the only labels are conversation-level and that the actual toxic comment was not included in the
-        # data. In that case, we must add a dummy comment containing no actual text, to get CRAFT to run on 
-        # the context preceding the dummy (that is, the full prefix before the removed comment)
-        processed.append({"tokens": ["UNK"], "is_attack": int(dialog.meta[label_metadata]), "id": processed[-1]["id"] + "_dummyreply"})
-    return processed
+  
+
 
 """ 
 1.Data Pre-processing: 

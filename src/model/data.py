@@ -269,12 +269,12 @@ def createTrainFile():
 "custom Pre-training/fine-tuning split for Kodis."
 "Add meta.pre-train tag to the conversations that are used for pre-training."
 "need to determine size of test-set"
-def createTrainValSplit():
+def createTrainValSplit(random_seed=42, val_size=0.1):
     "split first into valid and non-valid data (Human-AI disputes= Valid). Take "
     return
 
 
-def preprocess_utterances(utt_df, voc):
+def processLabeledDialogs(utt_df, voc):
     utt_df = utt_df.copy()
     utt_df["tokens"] = (utt_df["text"].map(tokenize) #-> tokens for eack text
         .map(lambda toks: [t if t in voc.word2index else "UNK" for t in toks])
@@ -282,46 +282,44 @@ def preprocess_utterances(utt_df, voc):
     if utt_label_metadata is None:
         utt_df["is_attack"] = 0
     else:
-        utt_df["is_attack"] = (utt_df[utt_label_metadata].fillna(0).astype(int))
+        utt_df["is_attack"] = (utt_df[f"meta.{utt_label_metadata}"].fillna(0).astype(int))
     return utt_df
 
-def load_pairs(voc,utt_df, conv_df, last_only: bool = False):
-    """
-    Returns (train_pairs, val_pairs, test_pairs), where each is a list of
-    (context: List[List[str]], reply: List[str], label: int, comment_id: str).
-    """
-    utts = preprocess_utterances(utt_df, voc)
-
+def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_only_test):
+    utts = processLabeledDialogs(utt_df, voc)
     # Prepare split IDs
     splits = {}
     for split in ("train", "val", "test"):
-        ids = conv_df.index[conv_df["split"] == split].unique()
+        ids = conv_df.index[conv_df["meta.split"] == split].unique()
         splits[split] = set(ids)
+        # print(f"Split {split} has {ids} conversations")
 
 
-    def make_pairs_for_split(ids_set):
+    def make_pairs_for_split(ids_set, last_only):
         pairs = []
-        for convo_id, dialog_df in utts[utts["conversation_id"].isin(ids_set)] \
-                                   .groupby("conversation_id", sort=False):
-            dialog_df['utt_id'] = dialog_df.index
-            dialog = dialog_df[["tokens", "is_attack", 'utt_id']].to_dict("records")
-            if utt_label_metadata is None and dialog:
-                last_id = dialog[-1]["utt_id"]
-                conv_label = conv_df.at[convo_id, label_metadata]
-                dialog.append({
-                    "tokens": ["UNK"],
-                    "is_attack": conv_label,
-                    "utt_id": f"{last_id}_dummyreply"
+        for convo_id, dialog_df in utts[utts["conversation_id"].isin(ids_set)].groupby("conversation_id", sort=False):
+            dialog_df['label'] = dialog_df.index
+            dialog = dialog_df[["tokens", "is_attack", 'label']].to_dict("records")
+            #If we only have conversation-level labels, we assume the entire dialog 
+            # is a context since it does not include a derailment devent. therefore, last comment needs to be encoded
+            if utt_label_metadata is None:
+                if label_metadata is None:
+                    raise ValueError("If utt_label_metadata is None, label_metadata must be provided to identify the conversation label.")
+                    return
+                last_id = dialog[-1]["label"]
+                conv_label = conv_df.at[convo_id, f"meta.{label_metadata}"]
+                dialog.append({"tokens": ["UNK"],"is_attack": conv_label, "label": f"{last_id}_dummyreply"
                 })
             idxs = [len(dialog) - 1] if last_only else range(1, len(dialog))
             for idx in idxs:
                 context = [u["tokens"][: MAX_LENGTH - 1] for u in dialog[max(0, idx - CONTEXT_SIZE) : idx]]
                 reply     = dialog[idx]["tokens"][: MAX_LENGTH - 1]
-                label     = dialog[idx]["is_attack"]
-                comment_id = dialog[idx - 1]["utt_id"]
+                label     = conv_df.at[convo_id, f"meta.{label_metadata}"] if label_metadata else dialog[idx]["is_attack"]
+                # We make a forecast on the comment prior to the reply, so we use the label of the previous comment.
+                comment_id = dialog[idx - 1]["label"]
                 pairs.append((context, reply, label, comment_id))
         return pairs
-    train_pairs = make_pairs_for_split(splits["train"])
-    val_pairs   = make_pairs_for_split(splits["val"])
-    test_pairs  = make_pairs_for_split(splits["test"])
+    train_pairs = make_pairs_for_split(splits["train"],last_only_train)
+    val_pairs   = make_pairs_for_split(splits["val"],last_only_val)
+    test_pairs  = make_pairs_for_split(splits["test"], last_only_test)
     return train_pairs, val_pairs, test_pairs

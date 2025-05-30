@@ -23,13 +23,13 @@ if corpus_name == "wikiconv":
 if corpus_name == "cmv":
    label_metadata = "has_personal_attack" 
 else:
-   label_metadata = "provided_outcome" 
+   label_metadata = None
 
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
 utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None # Name of the directory where the pre-processing files will be saved. This is used by the
-
+utt_label_metadata = "provided_outcome"
 # Name of the directory where the ConvoKit corpus objects will be saved. 
 corpora = "corpora" 
 
@@ -79,6 +79,11 @@ patience = 5
 factor = .1
 threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
+
+#Paramaters to handle data imbalance stratgey
+# Imbalance handling strategy. Options: "default", "oversample", "undersample", "weighted"
+Imbalance_handling = "default"
+
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences
