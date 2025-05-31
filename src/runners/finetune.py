@@ -1,5 +1,6 @@
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import numpy as np
 
 
 # import all configuration variables
@@ -24,45 +25,53 @@ DEFAULT_CONFIG = {
     "validation_size": 0.2,
 }
 
-"""Main inference piepeline implementing CRAFT"""
+"""Main inference piepeline implementing CRAFT. Because it uses the parent nn.mModule class, we can call .train() or .eval() on
+    the entire model pipeline.
+"""
 class CraftPipeline(nn.Module):
     """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
-    def __init__(self, encoder, context_encoder, classifier, voc, loss_function, predictor, predict_flag):
+    def __init__(self, encoder, context_encoder, classifier, voc, optimizer, predictor, mode_flag):
         super(CraftPipeline, self).__init__()
-        self.encoder =encoder
         self.voc = voc
+        self.encoder =encoder
         self.context_encoder = context_encoder
         self.classifier = classifier
         self.predictor = predictor
-        self.loss_function = loss_function
-        self.predict_mode = predict_flag
+        self.optimizer = optimizer
+        self.mode= mode_flag
 
-        
-    def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, max_length):
+    def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels, val_score):
         _, utt_encoder_hidden = self.encoder(input_batch, utt_lengths)
         context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
         context_encoder_outputs, context_encoder_hidden = self.context_encoder(context_encoder_input, dialog_lengths)
         logits = self.classifier(context_encoder_outputs, dialog_lengths)
-        if self.predict_flag:
-            self._predict(logits)
-        else:
-            self._updateloss(logits)
+        if self.mode == 'predict':
+            if self.predictor is None:
+                    raise RuntimeError("predictor must be set in predict mode")
+            """returns predicitons and scores"""
+            return self.predictor(logits)
+        elif self.mode == 'train':
+            if labels is None:
+                    raise RuntimeError("labels must be provided in training mode")
+            loss = self.optimizer.calcLoss(logits, labels)
+            self.opt.batchStep(logits, labels)
+            return loss.item()
+        elif self.mode == 'eval':
+            if val_score is None:
+                raise RuntimeError("validation score must be provided in evaluation mode")
+            self.optimizer.epochStep(val_score)
+            
 
-    def _predict(self, logits):
-        predictions = self.predictor(logits)
-        return predictions
-    def _updateloss(self, logits, labels):
-        loss = self.loss_function(logits, labels)
-        return loss
-    def _setmode(self):
-        if self.predict_mode:
-            self.encoder.train()
-            self.context_encoder.train()
-            self.attack_clf.train()
-        else:
-            self.encoder.eval()
-            self.context_encoder.eval()
-            self.attack_clf.eval() 
+
+    # def setmode(self):
+    #     if self.predict_mode:
+    #         self.encoder.train()
+    #         self.context_encoder.train()
+    #         self.attack_clf.train()
+    #     else:
+    #         self.encoder.eval()
+    #         self.context_encoder.eval()
+    #         self.attack_clf.eval() 
 
 
     
@@ -146,7 +155,9 @@ def setLossFunction():
     if loss_function == 'bce':
          return nn.BCEWithLogitsLoss()
 
-
+"""Handle logic for saving CRAFT model"""
+def saveModel(craft_model):
+    return
 
 """
 Training Harness
@@ -162,7 +173,7 @@ Parameters:
 """
 
 def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, # input/output arguments
-          encoder, context_encoder, attack_clf,                                                                    # optimization arguments
+          encoder, context_encoder, attack_clf,                                                                   # optimization arguments
           optimizerCalc, lossCalc):                                                                                 # network arguments      
     #set to device options
     toDevice([input_variable, dialog_lengths, utt_lengths, labels])
@@ -185,16 +196,34 @@ def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batc
     optimizerCalc.batchStep(loss)
     return loss.item()
 
-def evaluateBatch(predictor, input_batch, dialog_lengths, 
-                  dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
+
+def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
     # Set device options
     toDevice([input_batch, dialog_lengths, utt_lengths])
-    # Predict future attack using predictor
-    scores = predictor(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, max_length)
-    predictions = (scores > 0.5).float()
-    return predictions, scores
-    
-                                                        
+    # Predict future attack using predictor. return
+    '''handle predictions and scores here'''
+    return craft_model(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
+
+def trainFinal(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model):                                                                                           # optimization arguments): 
+    toDevice([input_variable, dialog_lengths, utt_lengths, labels])
+    return craft_model(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices,dialog_indices)
+
+"""Make predicitons on validation set from all batches"""
+def validate(val_pairs, craft_model):
+    #invoke iterator to  all needed artifacts for tensot converstion. No need to shuffle 
+    batch_iterator = batchIterator(voc, val_pairs, batch_size, shuffle=False)
+    n_iters = len(val_pairs) // batch_size + int(len(val_pairs) % batch_size > 0)
+    all_preds = []
+    all_labels = []
+    for iteration in range(1, n_iters+1):
+        batch, batch_dialogs, _, true_batch_size = next(batch_iterator)
+        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, convo_ids, target_variable, mask, max_target_len = batch
+        dialog_lengths_list = [len(x) for x in batch_dialogs]
+        predictions, scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
+    all_preds += [p.item() for p in predictions]
+    all_labels += [l.item() for l in labels]
+    print("Iteration: {}; Percent complete: {:.1f}%".format(iteration, iteration / n_iters * 100))  
+    return (np.asarray(all_preds) == np.asarray(all_labels)).mean()                                                        
 
 
 
