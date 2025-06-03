@@ -156,9 +156,9 @@ def clean_corpus_timestamps(utts, speakers, convos):
     return utts, speakers, convos
 
 def corpusBuilder(data):
-    utts, convo_mapping =buildUtteranceDF(data.getUtterancesDF())
-    speakers =buildSpeakerDF(data.getUtterancesDF())
-    convos =buildConvoDF(data.getDataframe(), convo_mapping)
+    utts, convo_mapping = buildUtteranceDF(data.getUtterancesDF())
+    speakers = buildSpeakerDF(data.getUtterancesDF())
+    convos = buildConvoDF(data.getDataframe(), convo_mapping)
     utts, speakers, convos = clean_corpus_timestamps(utts, speakers, convos)
     display(utts)
     display(speakers)

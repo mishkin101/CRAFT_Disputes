@@ -48,9 +48,11 @@ fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "proces
 
 #phrases to exlude from pretraining:
 pretrain_exclude_phrases = []
+pretrain_case = False
 
 #phrases to exlude from fine-tuning:
-pretrain_exclude_phrases = []
+finetune_exclude_phrases = []
+finetune_case = False
 
 # Configure model architecture parameters
 attn_model = 'general'
@@ -74,7 +76,7 @@ decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
 forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
 
-#optimizer:
+#Optimizer:
 # Optimizer to use, options: 'adam', 'sgd', 'adagrad', etc
 optimizer_type = 'adam'  
 patience = 5
@@ -83,14 +85,23 @@ threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 
 #Paramaters to handle data imbalance stratgey
-# Imbalance handling strategy. Options: "default", "stratified", "downsampling, "weighted"
-Imbalance_handling = "default"
+#Imbalance handling strategy. Options: "none", "stratified", "downsampling, 
+Imbalance_handling = "none"
 
 #Parameters for loss function:
 loss_function = 'bce'  # Loss function to use, options: 'bce' for binary cross-entropy, 'mse' for mean squared error
 
 #type of device
 device = "cuda" 
+
+#train-test split strategy
+k_folds = 5
+score_function = 'accuracy'
+val_size = .2
+train_size =.6
+
+#set random seed
+random_seed = 42
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences

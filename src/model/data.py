@@ -5,6 +5,8 @@ import random
 import json
 import unicodedata
 from convokit import Corpus
+from sklearn.model_selection import StratifiedKFold, train_test_split
+import numpy as np 
 
 from .config import *
 
@@ -269,9 +271,41 @@ def createTrainFile():
 "custom Pre-training/fine-tuning split for Kodis."
 "Add meta.pre-train tag to the conversations that are used for pre-training."
 "need to determine size of test-set"
-def createTrainValSplit(random_seed=42, val_size=0.1):
-    "split first into valid and non-valid data (Human-AI disputes= Valid). Take "
-    return
+def createTrainTestSplit(convo_df):
+    convo_ids = np.array(convo_df.index.tolist())
+    convo_labels = convo_df[f"meta.{label_metadata}"].astype(int).values 
+    if Imbalance_handling == 'default' | "downsampling":
+        X_train, X_test, y_train, y_test = train_test_split(
+            convo_ids, convo_labels, test_size= 1-val_size-train_size, random_state=random_seed)
+    if Imbalance_handling == 'stratified':
+        X_train, X_test, y_train, y_test = train_test_split(
+            convo_ids, convo_labels, test_size= 1-val_size-train_size, stratify=convo_labels, random_state=random_seed)
+    return X_train, X_test, y_train, y_test
+
+"""Only do train/val splits on training set"""
+def createTrainValSplit(convo_df_train):
+    convo_ids    = np.array(convo_df_train.index.tolist())
+    convo_labels = convo_df_train[f"meta.{label_metadata}"].astype(int).values
+    if k_folds > 1:
+        skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
+        folds = []
+        for train_idx, val_idx in skf.split(convo_ids, convo_labels):
+            train_ids = convo_ids[train_idx]
+            val_ids   = convo_ids[val_idx]
+            folds.append((train_ids, val_ids))
+        return folds
+    
+    test_size = val_size  
+    if Imbalance_handling == "stratified":
+        train_ids, val_ids, _, _ = train_test_split(
+            convo_ids, convo_labels, test_size=test_size, stratify=convo_labels, random_state=random_seed)
+    else:
+        train_ids, val_ids = train_test_split(convo_ids, test_size=test_size,random_state=random_seed)
+    return [(train_ids, val_ids)]
+
+"""make a column called meta.split"""
+def assignSplit(convo_df_train, convo_df_val, convo_df_test):
+
 
 
 def processLabeledDialogs(utt_df, voc):

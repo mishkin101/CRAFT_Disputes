@@ -2,6 +2,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 import pandas as pd
+from typing import Type
 
 
 # import all configuration variables
@@ -14,6 +15,10 @@ from model.model import *
 from model.classifiers import *
 #import optimizer
 from model.optimizer import *
+#import data utilties
+from utils.data_processing import DataProcesser
+#import corpys utilities
+from utils.corpus_utils import *
 
 
 DEFAULT_CONFIG = {
@@ -229,7 +234,9 @@ def trainIters(pairs, val_pairs, craft_model, embedding, n_iteration,  print_eve
             craft_model.train()
             craft_model.setMode("train")
         
-"""*** \\TODO: In finetuning demo, the convo-uid was set to be the reply-comment ID"""
+"""*** \\TODO: In finetuning demo, the convo-id was set to be the reply-comment ID by processDialogs,
+but the eval function uses the same funciton so in:
+batch2trainData: id_batch.append(pair[3]) is currently reply-comment ID"""
 def evaluateDataset(dataset, craft_model):
     batch_iterator = batchIterator(voc, dataset, batch_size, shuffle=False)
     n_iters = len(dataset) // batch_size + int(len(dataset) % batch_size > 0)
@@ -244,6 +251,7 @@ def evaluateDataset(dataset, craft_model):
         dialog_lengths_list = [len(x) for x in batch_dialogs]
         predictions, scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
         for i in range(true_batch_size):
+            """Potentially change to reply-comment ID"""
             convo_id = convo_ids[i]
             pred = predictions[i].item()
             score = scores[i].item()
@@ -256,10 +264,24 @@ def evaluateDataset(dataset, craft_model):
     return pd.DataFrame(output_df).set_index("id")
 
             
-"""*** MODIFY patience and factor if needed**"""
-def load_corpus_objects():
-    return
-  
+""" 
+Get the corpus object from chosen directory
+If train mode: then return utterances and convo dataframe and perform context selection
+"""
+def loadDataset(dataset):
+    file_path = os.path.join(fine_raw_dir, dataset)
+    data = DataProcesser(filepath=file_path)
+    contextSelection(data)
+    return corpusBuilder(data)
+
+"""
+Which utterance to exlcude as context from meta.text
+use functions defined in dataprocessor.py to create necessary dataframes
+"""
+def contextSelection(data: Type[DataProcesser]):
+    filtered_df = data.filterRows("message", exclude_val= finetune_exclude_phrases, case_ex = finetune_case)
+    data.setUtterancesDF(filtered_df)
+
 
 
 """ 
@@ -362,6 +384,9 @@ def load_corpus_objects():
             - submit agreement boxes
             - last utterance 
             - custom utterance selection function
+        - what metadata to include in conversations
+            - modify the conversation_ metadata in corpus_utils
+            - modify the utterances_detadata in corpus_utils
 
 
 """
