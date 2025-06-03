@@ -1,6 +1,7 @@
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
+import pandas as pd
 
 
 # import all configuration variables
@@ -61,20 +62,8 @@ class CraftPipeline(nn.Module):
                 raise RuntimeError("validation score must be provided in evaluation mode")
             self.optimizer.epochStep(val_score)
             
-
-
-    # def setmode(self):
-    #     if self.predict_mode:
-    #         self.encoder.train()
-    #         self.context_encoder.train()
-    #         self.attack_clf.train()
-    #     else:
-    #         self.encoder.eval()
-    #         self.context_encoder.eval()
-    #         self.attack_clf.eval() 
-
-
-    
+    def setMode(self, val):
+        self.mode = val
 """Load Device"""
 def loadDevice():
     if device == 'cuda' and torch.cuda.is_available():
@@ -102,7 +91,7 @@ def createClassifierHead(class_type = 'single_target'):
     return
 
 """Build Contect encoder, decoder, and classifier"""
-def loadCheckpointandMode(checkpoint, device, classifier_type = 'single_target', mode = 'train'):
+def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 'train'):
     # Instantiate your modules
     voc             = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
     embedding       = nn.Embedding(voc.num_words, hidden_size)
@@ -156,8 +145,19 @@ def setLossFunction():
          return nn.BCEWithLogitsLoss()
 
 """Handle logic for saving CRAFT model"""
-def saveModel(craft_model):
-    return
+def saveModel(craft_model, loss, iteration):
+      torch.save({
+                    'iteration': iteration,
+                    'en': craft_model.encoder.state_dict(),
+                    'ctx': craft_model.context_encoder.state_dict(),
+                    'atk_clf': craft_model.attack_clf.state_dict(),
+                    'en_opt': craft_model.encoder_optimizer.state_dict(),
+                    'ctx_opt': craft_model.context_encoder_optimizer.state_dict(),
+                    'atk_clf_opt': craft_model.attack_clf_optimizer.state_dict(),
+                    'loss': loss,
+                    'voc_dict': craft_model.voc.__dict__,
+                    'embedding': craft_model.embedding.state_dict()
+                }, os.path.join(save_dir, "finetuned_model.tar"))
 
 """
 Training Harness
@@ -171,31 +171,6 @@ Parameters:
     dialog_indices: tensor of dialog indices for each utterance in the batch: (M, )
     labels: tensor of labels for each context in the batch: (max_tokenized_length, batch_size)
 """
-
-def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, # input/output arguments
-          encoder, context_encoder, attack_clf,                                                                   # optimization arguments
-          optimizerCalc, lossCalc):                                                                                 # network arguments      
-    #set to device options
-    toDevice([input_variable, dialog_lengths, utt_lengths, labels])
-    #First, we run the utterance tensors called (max_tokenized_length, M) to create utterance contexts
-    """ Data: (max_tokenized_length, M, 500) -> X(max_tokenized_length, M, 500)
-        Hidden: (2*2, M, 500)                  -> (2*2, M, 500) """
-    _, utt_encoder_hidden = encoder(input_variable, utt_lengths)
-    #Second, regroup the utterance's hidden states  into their respective dialogues
-    """ Data:   (2*2, M, 500)                  -> X(max_convo_length, batch_size, 500)"""
-    context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
-    #Third, create the context encodings from the utterance states
-    """ Data:   (max_dial_length, batch_size, 500)    -> (max_convo_length, batch_size, 500)
-        Hidden: (2*1, M, 500)                         -> X(2*1, M, 500) """
-    context_encoder_outputs, _ = context_encoder(context_encoder_input, dialog_lengths) 
-    #make a pass through the classifier to get final logits for each conversation
-    """(max_convo_length, batch_size, 500) -> ( batch_size, 1)"""
-    logits = attack_clf(context_encoder_outputs, dialog_lengths)
-    #update the loss each training iteration
-    loss = lossCalc(logits,labels)
-    optimizerCalc.batchStep(loss)
-    return loss.item()
-
 
 def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
     # Set device options
@@ -225,9 +200,62 @@ def validate(val_pairs, craft_model):
     print("Iteration: {}; Percent complete: {:.1f}%".format(iteration, iteration / n_iters * 100))  
     return (np.asarray(all_preds) == np.asarray(all_labels)).mean()                                                        
 
+def trainIters(pairs, val_pairs, craft_model, embedding, n_iteration,  print_every, validate_every):
+    batch_iterator = batchIterator(voc, pairs, batch_size)
+    # Initializations
+    print('Initializing ...')
+    start_iteration = 1
+    print_loss = 0
+    for iteration in range(start_iteration, n_iteration + 1):
+        training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
+        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, _, target_variable, mask, max_target_len = training_batch
+        dialog_lengths_list = [len(x) for x in training_dialogs]
+        loss = trainFinal(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
+        print_loss += loss
+        if iteration % print_every == 0:
+            print_loss_avg = print_loss / print_every
+            print("Iteration: {}; Percent complete: {:.1f}%; Average loss: {:.4f}".format(iteration, iteration / n_iteration * 100, print_loss_avg))
+            print_loss = 0
+        if (iteration % validate_every == 0):
+            print("Validating!")
+            craft_model.eval()
+            craft_model.setMode("eval")
+            accuracy = validate(val_pairs, craft_model)
+            print("Validation set accuracy: {:.2f}%".format(accuracy * 100))
+            if accuracy > best_acc:
+                print("Validation accuracy better than current best; saving model...")
+                best_acc = accuracy
+                saveModel(craft_model, loss, iteration)
+            craft_model.train()
+            craft_model.setMode("train")
+        
+"""*** \\TODO: In finetuning demo, the convo-uid was set to be the reply-comment ID"""
+def evaluateDataset(dataset, craft_model):
+    batch_iterator = batchIterator(voc, dataset, batch_size, shuffle=False)
+    n_iters = len(dataset) // batch_size + int(len(dataset) % batch_size > 0)
+    output_df = {
+        "id": [],
+        "prediction": [],
+        "score": []
+    }
+    for iteration in range(1, n_iters+1):
+        batch, batch_dialogs, _, true_batch_size = next(batch_iterator)
+        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, convo_ids, target_variable, mask, max_target_len = batch
+        dialog_lengths_list = [len(x) for x in batch_dialogs]
+        predictions, scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
+        for i in range(true_batch_size):
+            convo_id = convo_ids[i]
+            pred = predictions[i].item()
+            score = scores[i].item()
+            output_df["id"].append(convo_id)
+            output_df["prediction"].append(pred)
+            output_df["score"].append(score)
+                
+        print("Iteration: {}; Percent complete: {:.1f}%".format(iteration, iteration / n_iters * 100))
 
+    return pd.DataFrame(output_df).set_index("id")
 
-
+            
 """*** MODIFY patience and factor if needed**"""
 def load_corpus_objects():
     return
@@ -339,5 +367,6 @@ def load_corpus_objects():
 """
 
 if __name__ == "__main__":
+    voc = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
     print("main")
 

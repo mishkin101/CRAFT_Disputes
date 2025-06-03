@@ -239,7 +239,7 @@ def batchIterator(voc, source_data, batch_size, shuffle=True):
         cur_idx += batch_size
 
 
-"custom Pre-training Utilities"
+"=========================CUSTOM FUNCTIONS===================================="
 def createTrainFile():
     out_dir = os.path.join(data_dir, "nn_input_data", corpus_name)
     os.makedirs(out_dir, exist_ok=True)
@@ -265,7 +265,7 @@ def createTrainFile():
 
     print(f"Pre‐training file written to {out_path}")
 
-"=========================CUSTOM FUNCTIONS===================================="
+
 "custom Pre-training/fine-tuning split for Kodis."
 "Add meta.pre-train tag to the conversations that are used for pre-training."
 "need to determine size of test-set"
