@@ -5,7 +5,8 @@ import random
 import json
 import unicodedata
 from convokit import Corpus
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split, KFold
+from sklearn.utils import resample
 import numpy as np 
 
 from .config import *
@@ -287,25 +288,53 @@ def createTrainValSplit(convo_df_train):
     convo_ids    = np.array(convo_df_train.index.tolist())
     convo_labels = convo_df_train[f"meta.{label_metadata}"].astype(int).values
     if k_folds > 1:
-        skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
-        folds = []
-        for train_idx, val_idx in skf.split(convo_ids, convo_labels):
-            train_ids = convo_ids[train_idx]
-            val_ids   = convo_ids[val_idx]
-            folds.append((train_ids, val_ids))
-        return folds
-    
-    test_size = val_size  
-    if Imbalance_handling == "stratified":
-        train_ids, val_ids, _, _ = train_test_split(
-            convo_ids, convo_labels, test_size=test_size, stratify=convo_labels, random_state=random_seed)
+        if Imbalance_handling == "stratified":
+            skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
+            folds = []
+            for train_idx, val_idx in skf.split(convo_ids, convo_labels):
+                train_ids = convo_ids[train_idx]
+                val_ids   = convo_ids[val_idx]
+                folds.append((train_ids, val_ids))
+            return folds
+        if Imbalance_handling == "downsample":
+            kf = KFold(n_splits=k_folds, shuffle = True, random_state = random_seed)
+            for train_idx, val_idx in skf.split(convo_ids, convo_labels):
+                train_ids = convo_ids[train_idx]
+                train_ids_down = downsample(convo_df_train, train_ids)
+                val_ids   = convo_ids[val_idx]
+                folds.append((train_ids_down, val_ids))
+            return folds
     else:
-        train_ids, val_ids = train_test_split(convo_ids, test_size=test_size,random_state=random_seed)
-    return [(train_ids, val_ids)]
+        test_size = val_size  
+        train_ids, val_ids = train_test_split(convo_ids, test_size=test_size, random_state=random_seed)
+        return [(train_ids, val_ids)]
 
-"""make a column called meta.split"""
-def assignSplit(convo_df_train, convo_df_val, convo_df_test):
+def assignSplit(convo_df, train_ids, val_ids, test_ids):
+    df = convo_df.copy()
+    df["meta.split"] = None
+    df.loc[train_ids, "meta.split"] = "train"
+    df.loc[val_ids,   "meta.split"] = "val"
+    df.loc[test_ids,  "meta.split"] = "test"
+    return df
 
+def downsample(convo_df, train_ids):
+    train_ids = np.array(train_ids)
+    train_labels = (convo_df.loc[train_ids, f"meta.{label_metadata}"].astype(int).to_numpy())
+    ids_class0 = train_ids[train_labels == 0]
+    ids_class1 = train_ids[train_labels == 1]
+    if len(ids_class0) > len(ids_class1):
+        majority_ids = ids_class0
+        minority_ids = ids_class1
+    else:
+        majority_ids = ids_class1
+        minority_ids = ids_class0
+
+    n_minority = len(minority_ids)
+    majority_down = resample(majority_ids ,replace=False, n_samples=n_minority,random_state=random_seed)
+    downsampled_ids = np.concatenate([minority_ids, majority_down])
+    convo_down = convo_df.loc[downsampled_ids]
+    convo_down_ids = convo_down.index
+    return convo_down_ids
 
 
 def processLabeledDialogs(utt_df, voc):
@@ -326,10 +355,9 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
     for split in ("train", "val", "test"):
         ids = conv_df.index[conv_df["meta.split"] == split].unique()
         splits[split] = set(ids)
-        # print(f"Split {split} has {ids} conversations")
+
 
     """***//TODO: #2 make this more generic, so that it can be used for anytpe of label***"""
-    #TODO: #3 Testing issue creation
     def make_pairs_for_split(ids_set, last_only):
         pairs = []
         for convo_id, dialog_df in utts[utts["conversation_id"].isin(ids_set)].groupby("conversation_id", sort=False):
@@ -343,8 +371,7 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
                     return
                 last_id = dialog[-1]["label"]
                 conv_label = conv_df.at[convo_id, f"meta.{label_metadata}"]
-                dialog.append({"tokens": ["UNK"],"is_attack": conv_label, "label": f"{last_id}_dummyreply"
-                })
+                dialog.append({"tokens": ["UNK"],"is_attack": conv_label, "label": f"{last_id}"})
             idxs = [len(dialog) - 1] if last_only else range(1, len(dialog))
             for idx in idxs:
                 context = [u["tokens"][: MAX_LENGTH - 1] for u in dialog[max(0, idx - CONTEXT_SIZE) : idx]]

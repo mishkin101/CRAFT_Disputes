@@ -3,6 +3,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 import pandas as pd
 from typing import Type
+import mlflow
+import optuna
 
 
 # import all configuration variables
@@ -31,44 +33,64 @@ DEFAULT_CONFIG = {
     "validation_size": 0.2,
 }
 
+class Predictor(nn.Module):
+    """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
+    def __init__(self):
+        super(Predictor, self).__init__()
+    def forward(logits):
+        predictions = F.sigmoid(logits)
+        return predictions
+
+
 """Main inference piepeline implementing CRAFT. Because it uses the parent nn.mModule class, we can call .train() or .eval() on
-    the entire model pipeline.
-"""
+    the entire model pipeline."""
 class CraftPipeline(nn.Module):
     """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
-    def __init__(self, encoder, context_encoder, classifier, voc, optimizer, predictor, mode_flag):
+    def __init__(self, encoder, context_encoder, classifier, voc, optimizer, predictor, loss_function):
         super(CraftPipeline, self).__init__()
         self.voc = voc
         self.encoder =encoder
         self.context_encoder = context_encoder
-        self.classifier = classifier
-        self.predictor = predictor
+        self.classifier = classifier #another nn.module potentially
+        self.predictor = predictor #activation function
         self.optimizer = optimizer
-        self.mode= mode_flag
+        self.loss_function = loss_function
+        self.embedding = self.encoder.embedding if hasattr(self.encoder, "embedding") else None
 
-    def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels, val_score):
+
+    def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels, epoch):
         _, utt_encoder_hidden = self.encoder(input_batch, utt_lengths)
         context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
         context_encoder_outputs, context_encoder_hidden = self.context_encoder(context_encoder_input, dialog_lengths)
         logits = self.classifier(context_encoder_outputs, dialog_lengths)
-        if self.mode == 'predict':
-            if self.predictor is None:
-                    raise RuntimeError("predictor must be set in predict mode")
-            """returns predicitons and scores"""
-            return self.predictor(logits)
-        elif self.mode == 'train':
+        if self.training:
             if labels is None:
                     raise RuntimeError("labels must be provided in training mode")
-            loss = self.optimizer.calcLoss(logits, labels)
-            self.opt.batchStep(logits, labels)
+            loss = self.loss_function(logits, labels)
+            self.optimizer.batchStep(logits, labels)
             return loss.item()
-        elif self.mode == 'eval':
-            if val_score is None:
-                raise RuntimeError("validation score must be provided in evaluation mode")
-            self.optimizer.epochStep(val_score)
-            
-    def setMode(self, val):
-        self.mode = val
+        else:
+            if self.predictor is None:
+                    raise RuntimeError("predictor must be set in eval mode")
+            return self.predictor(logits)
+""" 
+Get the corpus object from chosen directory
+If train mode: then return utterances and convo dataframe and perform context selection
+"""
+def loadDataset(dataset):
+    file_path = os.path.join(fine_raw_dir, dataset)
+    data = DataProcesser(filepath=file_path)
+    contextSelection(data)
+    return corpusBuilder(data)
+
+"""
+Which utterance to exlcude as context from meta.text
+use functions defined in dataprocessor.py to create necessary dataframes
+"""
+def contextSelection(data: Type[DataProcesser]):
+    filtered_df = data.filterRows("message", exclude_val= finetune_exclude_phrases, case_ex = finetune_case)
+    data.setUtterancesDF(filtered_df)
+
 """Load Device"""
 def loadDevice():
     if device == 'cuda' and torch.cuda.is_available():
@@ -93,7 +115,8 @@ def loadPretrainedModel():
 def createClassifierHead(class_type = 'single_target'):
     if class_type == 'single_target':
         return SingleTargetClf(hidden_size, dropout)
-    return
+    
+    raise ValueError(f"Unsupported classifier type: {class_type}")
 
 """Build Contect encoder, decoder, and classifier"""
 def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 'train'):
@@ -102,7 +125,6 @@ def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 
     embedding       = nn.Embedding(voc.num_words, hidden_size)
     encoder         = EncoderRNN(hidden_size, embedding, encoder_n_layers, dropout)
     context_encoder = ContextEncoderRNN(hidden_size, context_encoder_n_layers, dropout)
-    attack_clf      = SingleTargetClf(hidden_size, dropout)
     voc.__dict__    = (checkpoint['voc_dict'])
     attack_clf      = createClassifierHead(classifier_type)
     # Load weights
@@ -111,6 +133,8 @@ def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 
     context_encoder.load_state_dict(checkpoint['ctx'])
     voc.__dict__ = checkpoint['voc_dict']
     # Move to device
+    
+    """=======MOVE TO MAIN?======="""
     toDevice([encoder,context_encoder, attack_clf])
     return embedding, encoder, context_encoder, attack_clf, voc
 
@@ -132,8 +156,8 @@ def toDevice(tensor):
 """Compute training Iterations"""
 def computerIterations(train_pairs):
     n_iter_per_epoch = len(train_pairs) // batch_size + int(len(train_pairs) % batch_size == 1)
-    n_iteration = n_iter_per_epoch * finetune_epochs
-    return n_iter_per_epoch, n_iteration
+    # n_iteration = n_iter_per_epoch * finetune_epochs
+    return n_iter_per_epoch#, n_iteration
 
 """Create Optimizers and schedulers for training"""
 def setOptimizer(models):
@@ -150,9 +174,9 @@ def setLossFunction():
          return nn.BCEWithLogitsLoss()
 
 """Handle logic for saving CRAFT model"""
-def saveModel(craft_model, loss, iteration):
+def saveModel(craft_model, loss, epoch):
       torch.save({
-                    'iteration': iteration,
+                    'epoch': epoch,
                     'en': craft_model.encoder.state_dict(),
                     'ctx': craft_model.context_encoder.state_dict(),
                     'atk_clf': craft_model.attack_clf.state_dict(),
@@ -162,8 +186,8 @@ def saveModel(craft_model, loss, iteration):
                     'loss': loss,
                     'voc_dict': craft_model.voc.__dict__,
                     'embedding': craft_model.embedding.state_dict()
-                }, os.path.join(save_dir, "finetuned_model.tar"))
-
+                }, os.path.join(experiment_model_dir, f"best_epoch_{epoch}.tar"))
+    
 """
 Training Harness
 Parameters:
@@ -177,145 +201,154 @@ Parameters:
     labels: tensor of labels for each context in the batch: (max_tokenized_length, batch_size)
 """
 
+"""return thresholded score logic"""
+def classificationThreshold(scores):
+    return (scores > forecast_thresh).float()
+
+"""return validation score metric"""
+def valScore(preds, labels):
+    if score_function == "accuracy":
+        return (np.asarray(preds) == np.asarray(labels)).mean()
+    return
+
+"""return scores from predictor"""
 def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
-    # Set device options
     toDevice([input_batch, dialog_lengths, utt_lengths])
-    # Predict future attack using predictor. return
-    '''handle predictions and scores here'''
     return craft_model(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
 
-def trainFinal(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model):                                                                                           # optimization arguments): 
+"""return loss from CRAFT pipeline and update optimzer steps, gradients"""
+def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model):                                                                                           # optimization arguments): 
     toDevice([input_variable, dialog_lengths, utt_lengths, labels])
     return craft_model(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices,dialog_indices)
 
-"""Make predicitons on validation set from all batches"""
-def validate(val_pairs, craft_model):
+"""Make predicitons on validation set or test set from all batches"""
+def evaluate(pairs, craft_model):
+    results = {}
     #invoke iterator to  all needed artifacts for tensot converstion. No need to shuffle 
-    batch_iterator = batchIterator(voc, val_pairs, batch_size, shuffle=False)
-    n_iters = len(val_pairs) // batch_size + int(len(val_pairs) % batch_size > 0)
-    all_preds = []
-    all_labels = []
-    for iteration in range(1, n_iters+1):
-        batch, batch_dialogs, _, true_batch_size = next(batch_iterator)
-        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, convo_ids, target_variable, mask, max_target_len = batch
-        dialog_lengths_list = [len(x) for x in batch_dialogs]
-        predictions, scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
-    all_preds += [p.item() for p in predictions]
-    all_labels += [l.item() for l in labels]
-    print("Iteration: {}; Percent complete: {:.1f}%".format(iteration, iteration / n_iters * 100))  
-    return (np.asarray(all_preds) == np.asarray(all_labels)).mean()                                                        
+    batch_iterator = batchIterator(voc, pairs, batch_size, shuffle=False)
+    n_iters = len(pairs) // batch_size + int(len(pairs) % batch_size > 0)
+    with torch.no_grad():
+        for iteration in range(1, n_iters+1):
+            batch, batch_dialogs, *_ = next(batch_iterator)
+            input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, id_batch,*_ = batch
+            dialog_lengths_list = [len(x) for x in batch_dialogs]
+            scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
+            predictions = classificationThreshold(scores)
+        for i, comment_id in enumerate(id_batch):
+                results[comment_id] = {
+                    "probability": scores[i].detach().cpu().item(),
+                    "prediction": predictions[i].detach().cpu().item(),
+                    "label": labels[i].detach().cpu().item() 
+                }
+    return results                                                
 
-def trainIters(pairs, val_pairs, craft_model, embedding, n_iteration,  print_every, validate_every):
-    batch_iterator = batchIterator(voc, pairs, batch_size)
-    # Initializations
-    print('Initializing ...')
-    start_iteration = 1
-    print_loss = 0
-    for iteration in range(start_iteration, n_iteration + 1):
-        training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
-        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, _, target_variable, mask, max_target_len = training_batch
-        dialog_lengths_list = [len(x) for x in training_dialogs]
-        loss = trainFinal(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
-        print_loss += loss
-        if iteration % print_every == 0:
-            print_loss_avg = print_loss / print_every
-            print("Iteration: {}; Percent complete: {:.1f}%; Average loss: {:.4f}".format(iteration, iteration / n_iteration * 100, print_loss_avg))
-            print_loss = 0
-        if (iteration % validate_every == 0):
-            print("Validating!")
-            craft_model.eval()
-            craft_model.setMode("eval")
-            accuracy = validate(val_pairs, craft_model)
-            print("Validation set accuracy: {:.2f}%".format(accuracy * 100))
-            if accuracy > best_acc:
-                print("Validation accuracy better than current best; saving model...")
-                best_acc = accuracy
-                saveModel(craft_model, loss, iteration)
-            craft_model.train()
-            craft_model.setMode("train")
-        
-"""*** \\TODO: In finetuning demo, the convo-id was set to be the reply-comment ID by processDialogs,
-but the eval function uses the same funciton so in:
-batch2trainData: id_batch.append(pair[3]) is currently reply-comment ID"""
-def evaluateDataset(dataset, craft_model):
-    batch_iterator = batchIterator(voc, dataset, batch_size, shuffle=False)
-    n_iters = len(dataset) // batch_size + int(len(dataset) % batch_size > 0)
-    output_df = {
-        "id": [],
-        "prediction": [],
-        "score": []
-    }
-    for iteration in range(1, n_iters+1):
-        batch, batch_dialogs, _, true_batch_size = next(batch_iterator)
-        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, convo_ids, target_variable, mask, max_target_len = batch
-        dialog_lengths_list = [len(x) for x in batch_dialogs]
-        predictions, scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
-        for i in range(true_batch_size):
-            """Potentially change to reply-comment ID"""
-            convo_id = convo_ids[i]
-            pred = predictions[i].item()
-            score = scores[i].item()
-            output_df["id"].append(convo_id)
-            output_df["prediction"].append(pred)
-            output_df["score"].append(score)
-                
-        print("Iteration: {}; Percent complete: {:.1f}%".format(iteration, iteration / n_iters * 100))
+def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
+    best_val_score = 0
+    train_history = []
+    val_history = []
+    best_model_path =None
+    for epoch in range(finetune_epochs):
+        total_loss =0
+        for iteration in range(1, epoch_iterations +1):
+            training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
+            batch_iterator = batchIterator(voc, train_pairs, batch_size)
+            input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, *_ = training_batch
+            dialog_lengths_list = [len(x) for x in training_dialogs]
+            loss = train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
+            total_loss += loss
+        craft_model.eval()
+        results = evaluate(val_pairs, craft_model)
+        all_preds  = [ entry["prediction"] for entry in results.values() ]
+        all_labels = [ entry["label"]      for entry in results.values() ]
+        val_score = valScore(all_preds, all_labels)
+        if val_score > best_val_score:
+            best_val_score = val_score
+            saveModel(craft_model, loss, epoch)
+            best_model_path = os.path.join(experiment_model_dir, f"best_epoch_{epoch}.tar") 
+        craft_model.optimizer.epochStep(val_score)
+        train_history.append(total_loss)
+        val_history.append(val_score)
+        print(f"[Epoch {epoch}/{finetune_epochs}] train_loss={loss:.4f}  val_score={val_score:.4f}")
+        craft_model.train()
+    return train_history, val_history, best_model_path
 
-    return pd.DataFrame(output_df).set_index("id")
 
-            
-""" 
-Get the corpus object from chosen directory
-If train mode: then return utterances and convo dataframe and perform context selection
-"""
-def loadDataset(dataset):
-    file_path = os.path.join(fine_raw_dir, dataset)
-    data = DataProcesser(filepath=file_path)
-    contextSelection(data)
-    return corpusBuilder(data)
+def updateUtterances(utt_df, results):
+    results_df = pd.DataFrame.from_dict(results, orient="index")
+    results_df.index.name = "comment_id"
+    results_df = results_df.rename(columns=lambda c: f"meta.{c}")
+    return utt_df.merge(
+        results_df,
+        how="right",
+        left_index=True,
+        right_index=True
+    )
 
-"""
-Which utterance to exlcude as context from meta.text
-use functions defined in dataprocessor.py to create necessary dataframes
-"""
-def contextSelection(data: Type[DataProcesser]):
-    filtered_df = data.filterRows("message", exclude_val= finetune_exclude_phrases, case_ex = finetune_case)
-    data.setUtterancesDF(filtered_df)
+def updateConvos(convo_df, results):
+    conv_acc = {}
+    for comment_id, res in results.items():
+        if "_" not in comment_id:
+            continue
+        conv_id = comment_id.rsplit("_", 1)[1]
+        if conv_id not in conv_acc:
+            conv_acc[conv_id] = {"probs": [], "preds": []}
+        conv_acc[conv_id]["probs"].append(res["probability"])
+        conv_acc[conv_id]["preds"].append(res["prediction"])
+    rows = []
+    for conv_id, vals in conv_acc.items():
+        max_prob = max(vals["probs"])
+        any_pred = 1 if any(p == 1 for p in vals["preds"]) else 0
+        rows.append({"conversation_id": f"utt0_{conv_id}",
+                     "meta.forecast_score": max_prob,
+                     "meta.forecast_prediction": any_pred})
+    conv_results_df = pd.DataFrame(rows).set_index("conversation_id")
+
+    return convo_df.merge(
+        conv_results_df,
+        how="right",
+        left_index=True,
+        right_index=True
+    )
+
+
+def main():
+    
+    return
 
 
 
 """ 
 1.Data Pre-processing: 
 
-    processDialog() *** NEED TO MODIFY ***
+    processDialog() *** DONE ***
         -  tokenization of texts in eatch batch 
 
-    loadPairs() *** NEED TO MODIFY ***
+    loadPairs() *** DONE ***
         -   loading pairs according to the split they are in as (context, reply, label, comment_id). 
         -   Called by processDialog()
 
-    contextSelection():  *** NEED TO MAKE ***
+    contextSelection():  *** DONE ***
         - which utterance to exlcude as context from meta.text
 
 2.Loading Corpus Objects: 
-    loadCorpusObjects() *** NEED TO MAKE ***
+    loadCorpusObjects() *** DONE ***
         -  load the corpus objects from corpus_dir
         -  load the utterances, speakers, and conversations dataframes
         -  this will be used to get the utterances and their metadata for training and evaluation
     load all corpora into memory
 
-3.Load Vocabulary Object:
+3.Load Vocabulary Object: *** DONE ***
     loadPrecomputedVoc()
 
-4.Build Classifiers:
+4.Build Classifiers:  
     NEW Predictor(nn.Module): - Subjecitve outcomes *** NEED TO MAKE ***
-    Predictor(nn.Module): - Objective outcomes (single target) Exists in model.py
+    Predictor(nn.Module): - Objective outcomes (single target) Exists in model.py *** DONE ***
 
-5. Build Predictor Harness:(used in test/eval tests)
+5. Build Predictor Harness:(used in test/eval tests) *** DONE ***
     - runs through utt encoder + contetext encoder to create hidden states
     - calls classifier to get predicitons from encoded context
 
-6. Build Train Loop: (for fine-tuning training)
+6. Build Train Loop: (for fine-tuning training) *** DONE ***
      src.train()
     - zero out gradients on every mini-batch
     - runs through utt encoder + contetext encoder to create hidden states
@@ -324,15 +357,17 @@ def contextSelection(data: Type[DataProcesser]):
     - adjust weights
     - return loss
 
-7. Build evaluateBatch:
-    src.evaluateBatch() *** NEED TO MODIFY ***
+7. Build evaluateBatch: *** DONE ***
+    evaluateBatch() 
     - returns the (predicitons) and scores for test/val tests
 
-8. Build validate
-    src.validate() *** NEED TO MODIFY ***
+8. Build evaluation logig for validation and predicition *** DONE ***
+    evaluate() 
 
-9. Managing saving experiment results
-    src.file_utils.save_experiment_results() *** NEED TO MAKE ***
+12. Handle K-fold splitting in training *** NEED TO MAKE ***
+    
+9. Managing saving experiment results  *** NEED TO MAKE ***
+    src.file_utils.save_experiment_results()
     - save model state dict
     - save training history
     - save validation history
@@ -341,7 +376,7 @@ def contextSelection(data: Type[DataProcesser]):
     - save model architecture (if changed)
     - save final utterances, conversations dataframes to experiment in "experiments" directory
 
-10. Plotting Utililties
+10. Plotting Utililties *** NEED TO MAKE ***
  *** FIND GOOD PACKAGE TO MANAGE MONITORING TRAINING ***
     - plot training history
     - plot validation history
@@ -349,12 +384,12 @@ def contextSelection(data: Type[DataProcesser]):
     - plot hyper-parameters used in the experiment
     - save plots to "experiments" directory
 
-12. build hyper-parameter tuning with parallelization
+12. build hyper-parameter tuning with parallelization *** NEED TO MAKE ***
  *** FIND GOOD PACKAGE TO MANAGE MONITORING TRAINING ***
     - use Optuna to tune hyper-parameters and parallelize
     - save best hyper-parameters to "experiments" directory
 
-13. us MLFlow to manage the training pipeline
+13. us MLFlow to manage the training pipeline *** NEED TO MAKE ***
     - use MLFow to track experiments, hyper-parameters, and results
     - save model artifacts to MLFow server
     - log training history, validation history, and test history to MLFow server
@@ -362,7 +397,7 @@ def contextSelection(data: Type[DataProcesser]):
     - use Optuna to tune hyper-parameters and parallelize
     - save best hyper-parameters to "experiments" directory
 
-11. Build and create Fine-tuning harness:
+11. Build and create Fine-tuning harness: *** NEED TO MAKE ***
     - add command line interface to set flags to run an experiment confirguation with:
         - experiment name 
             - used for saving results in "experiments" directory
@@ -393,5 +428,7 @@ def contextSelection(data: Type[DataProcesser]):
 
 if __name__ == "__main__":
     voc = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
-    print("main")
+
+    
+
 

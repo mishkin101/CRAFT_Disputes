@@ -178,10 +178,8 @@ def corpusBuilder(data):
 
     all_used = convos['id'].isin(utts['conversation_id']).all()
     print("Every convos.id is referred to by at least one utterance?", all_used)
-    print(utts['conversation_id'].nunique(), "unique IDs in your utterance DF")
+    print("Unique conversation_id’s in your utterance DF:",utts['conversation_id'].nunique())
     print(utts['conversation_id'].unique()[:10])  # sample of the first few
-    print("Unique conversation_id’s in your utterance DF:",
-      utts['conversation_id'].nunique())
     return corpus_ob
 
 '''return: Speaker DataFrame'''
@@ -221,6 +219,5 @@ def buildspeakerParams(self, df):
     return list(speakers_dict.values())
 
     speaker_list=[]
-
 if __name__ == "__main__":
     print("This file")

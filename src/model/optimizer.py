@@ -18,8 +18,6 @@ class OptimizerWithScheduler:
         )
         self.clip = clip
     
-    def calculateLoss(self, logits, labels):
-        return self.optimizer(logits, labels)
 
     def batchStep(self, loss):
         """Call this once per training batch."""

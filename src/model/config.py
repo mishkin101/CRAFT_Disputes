@@ -39,6 +39,8 @@ save_dir = os.path.join(repo_dir, "saved_models", corpus_name) # Where to save t
 train_path = os.path.join(data_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
 word2index_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
 index2word_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
+experiments_dir = os.path.join(repo_dir, "experiments")
+
 
 #saved locations for corpus objects:
 corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
@@ -49,10 +51,16 @@ fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "proces
 #phrases to exlude from pretraining:
 pretrain_exclude_phrases = []
 pretrain_case = False
-
+pretrain_include_AI = True
+pretrain_utterance_metadata = []
+pretrain_convo_metadata = []
 #phrases to exlude from fine-tuning:
 finetune_exclude_phrases = []
 finetune_case = False
+finetune_include_AI = True
+finetune_utterance_metadata = ["predictions", "scores"]
+finetune_convo_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome"
+    ,"s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"]
 
 # Configure model architecture parameters
 attn_model = 'general'
@@ -90,7 +98,7 @@ Imbalance_handling = "none"
 
 #Parameters for loss function:
 loss_function = 'bce'  # Loss function to use, options: 'bce' for binary cross-entropy, 'mse' for mean squared error
-
+pos_weight = 1
 #type of device
 device = "cuda" 
 
@@ -102,6 +110,13 @@ train_size =.6
 
 #set random seed
 random_seed = 42
+
+#Experiment config
+experiment_name = None
+experiment_model_dir = os.path.join(experiments_dir, experiment_name, "models")
+experiment_train_dir = os.path.join(experiments_dir, experiment_name, "train_history")
+
+
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences

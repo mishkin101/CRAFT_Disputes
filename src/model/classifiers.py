@@ -74,3 +74,6 @@ class SingleTargetClf(nn.Module):
         # compute and return logits
         logits = self.clf(self.dropout(layer2_out)).squeeze()
         return logits
+    
+
+"""================sklearn classifier======================="""

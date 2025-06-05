@@ -90,16 +90,24 @@ class DataProcesser:
         self.filterMatches("Accept Deal")
         final_success_df = self.getMatchedConvoDF("Accept Deal")
         if remove_AI:
-            final_success_df = final_success_df[final_success_df["is_AI"] != True]
+            mask_succ = ~(final_success_df["buyer_is_AI"] | final_success_df["seller_is_AI"])
+            final_success_df = final_success_df[mask_succ]
+        final_success_df  = final_success_df[final_success_df["parsed_dialog"].apply(self.is_accept_deal)]
         display(final_success_df)
         print("Data type of parsed_dialog:", type(final_success_df["parsed_dialog"].iloc[0]))
-        final_success_df  = final_success_df[final_success_df["parsed_dialog"].apply(self.is_accept_deal)]
+
         self.filterMatches("I Walk Away")
         final_reject_df = self.getMatchedConvoDF("I Walk Away")
-        final_reject_df  = final_reject_df[final_reject_df["parsed_dialog"].apply(self.is_walk_away)]
         if remove_AI:
-            final_reject_df = final_reject_df[final_reject_df["is_AI"] != True]
+            mask_rej = ~(final_reject_df["buyer_is_AI"] | final_reject_df["seller_is_AI"])
+            final_reject_df = final_reject_df[mask_rej]
+        final_reject_df  = final_reject_df[final_reject_df["parsed_dialog"].apply(self.is_walk_away)]
+        display(final_reject_df)
         self.df = pd.concat([final_success_df, final_reject_df]).sort_index()
+        final_utt = self.filterRows('message', exclude_val=["Accept Deal", "I Walk Away"], case_ex=True)
+        mask_keep = final_utt["row_idx"].isin(self.df.index)
+        final_utt = final_utt.loc[mask_keep , :]
+        self.utterancesDF = final_utt
 
     def addDisputeOutcomesfromLabels(self, row):
         return 0 if row == "Resolution" else 1
