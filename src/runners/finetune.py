@@ -3,8 +3,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 import pandas as pd
 from typing import Type
-import mlflow
-import optuna
+from sklearn.metrics import get_scorer_names, get_scorer
 
 
 # import all configuration variables
@@ -23,15 +22,15 @@ from utils.data_processing import DataProcesser
 from utils.corpus_utils import *
 
 
-DEFAULT_CONFIG = {
-    "dropout": 0.1,
-    "batch_size": 64,
-    "clip": 50.0,
-    "learning_rate": 1e-5,
-    "print_every": 10,
-    "finetune_epochs": 30,
-    "validation_size": 0.2,
-}
+# DEFAULT_CONFIG = {
+#     "dropout": 0.1,
+#     "batch_size": 64,
+#     "clip": 50.0,
+#     "learning_rate": 1e-5,
+#     "print_every": 10,
+#     "finetune_epochs": 30,
+#     "validation_size": 0.2,
+# }
 
 class Predictor(nn.Module):
     """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
@@ -77,9 +76,8 @@ class CraftPipeline(nn.Module):
 Get the corpus object from chosen directory
 If train mode: then return utterances and convo dataframe and perform context selection
 """
-def loadDataset(dataset):
-    file_path = os.path.join(fine_raw_dir, dataset)
-    data = DataProcesser(filepath=file_path)
+def loadDataset():
+    data = DataProcesser(filepath=fine_raw_dir)
     contextSelection(data)
     return corpusBuilder(data)
 
@@ -112,10 +110,9 @@ def loadPretrainedModel():
     return checkpoint
 
 """Create Classifier Head"""
-def createClassifierHead(class_type = 'single_target'):
-    if class_type == 'single_target':
+def createClassifierHead():
+    if classifier_type == 'single_target':
         return SingleTargetClf(hidden_size, dropout)
-    
     raise ValueError(f"Unsupported classifier type: {class_type}")
 
 """Build Contect encoder, decoder, and classifier"""
@@ -132,10 +129,8 @@ def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 
     encoder.load_state_dict(checkpoint['en'])
     context_encoder.load_state_dict(checkpoint['ctx'])
     voc.__dict__ = checkpoint['voc_dict']
-    # Move to device
-    
-    """=======MOVE TO MAIN?======="""
-    toDevice([encoder,context_encoder, attack_clf])
+    """=======MOVE TODEVICE() TO MAIN?======="""
+    # toDevice([encoder,context_encoder, attack_clf])
     return embedding, encoder, context_encoder, attack_clf, voc
 
 """Convert Tensor to Device"""
@@ -160,7 +155,9 @@ def computerIterations(train_pairs):
     return n_iter_per_epoch#, n_iteration
 
 """Create Optimizers and schedulers for training"""
+"""Models: models[0]: encoder, models[1]: context_encoder, models[2]:attack_clf"""
 def setOptimizer(models):
+    models = nn.ModuleList([models[0], models[1], models[2]])
     if optimizer_type == 'adam':
         optimizer = torch.optim.Adam(models.parameters(), lr=learning_rate)
     elif optimizer_type == 'sgd': 
@@ -168,25 +165,19 @@ def setOptimizer(models):
     opt_and_sched = OptimizerWithScheduler(models=models, optimizer=optimizer)
     return opt_and_sched
 
-"""Create loss funciton for training batch"""
+"""Create loss funciton for training batch from nn.modules.loss"""
 def setLossFunction():
-    if loss_function == 'bce':
-         return nn.BCEWithLogitsLoss()
+    candidates = [loss_function, loss_function[0].upper() + loss_function[1:]]
+    for name in candidates:
+        if hasattr(nn, name):
+            LossClass = getattr(nn, name)
+            if isinstance(LossClass, type) and issubclass(LossClass, nn.Module):
+                return LossClass()
+        else:
+            raise ValueError(f"`{loss_function}` is not a callable or nn.Module subclass")
 
-"""Handle logic for saving CRAFT model"""
-def saveModel(craft_model, loss, epoch):
-      torch.save({
-                    'epoch': epoch,
-                    'en': craft_model.encoder.state_dict(),
-                    'ctx': craft_model.context_encoder.state_dict(),
-                    'atk_clf': craft_model.attack_clf.state_dict(),
-                    'en_opt': craft_model.encoder_optimizer.state_dict(),
-                    'ctx_opt': craft_model.context_encoder_optimizer.state_dict(),
-                    'atk_clf_opt': craft_model.attack_clf_optimizer.state_dict(),
-                    'loss': loss,
-                    'voc_dict': craft_model.voc.__dict__,
-                    'embedding': craft_model.embedding.state_dict()
-                }, os.path.join(experiment_model_dir, f"best_epoch_{epoch}.tar"))
+
+
     
 """
 Training Harness
@@ -207,9 +198,9 @@ def classificationThreshold(scores):
 
 """return validation score metric"""
 def valScore(preds, labels):
-    if score_function == "accuracy":
-        return (np.asarray(preds) == np.asarray(labels)).mean()
-    return
+    scorer_obj = get_scorer(score_function)
+    metric_fn   = scorer_obj._score_func
+    return metric_fn(labels, preds)
 
 """return scores from predictor"""
 def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
@@ -264,7 +255,7 @@ def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
         if val_score > best_val_score:
             best_val_score = val_score
             saveModel(craft_model, loss, epoch)
-            best_model_path = os.path.join(experiment_model_dir, f"best_epoch_{epoch}.tar") 
+            best_model_path = os.path.join(experiment_model_dir, f"{experiment_name}_best_epoch_{epoch}.tar") 
         craft_model.optimizer.epochStep(val_score)
         train_history.append(total_loss)
         val_history.append(val_score)
@@ -273,46 +264,13 @@ def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
     return train_history, val_history, best_model_path
 
 
-def updateUtterances(utt_df, results):
-    results_df = pd.DataFrame.from_dict(results, orient="index")
-    results_df.index.name = "comment_id"
-    results_df = results_df.rename(columns=lambda c: f"meta.{c}")
-    return utt_df.merge(
-        results_df,
-        how="right",
-        left_index=True,
-        right_index=True
-    )
-
-def updateConvos(convo_df, results):
-    conv_acc = {}
-    for comment_id, res in results.items():
-        if "_" not in comment_id:
-            continue
-        conv_id = comment_id.rsplit("_", 1)[1]
-        if conv_id not in conv_acc:
-            conv_acc[conv_id] = {"probs": [], "preds": []}
-        conv_acc[conv_id]["probs"].append(res["probability"])
-        conv_acc[conv_id]["preds"].append(res["prediction"])
-    rows = []
-    for conv_id, vals in conv_acc.items():
-        max_prob = max(vals["probs"])
-        any_pred = 1 if any(p == 1 for p in vals["preds"]) else 0
-        rows.append({"conversation_id": f"utt0_{conv_id}",
-                     "meta.forecast_score": max_prob,
-                     "meta.forecast_prediction": any_pred})
-    conv_results_df = pd.DataFrame(rows).set_index("conversation_id")
-
-    return convo_df.merge(
-        conv_results_df,
-        how="right",
-        left_index=True,
-        right_index=True
-    )
 
 
-def main():
+def main(config):
     
+
+
+
     return
 
 

@@ -22,16 +22,18 @@ if corpus_name == "wikiconv":
    label_metadata = "conversation_has_personal_attack" 
 if corpus_name == "cmv":
    label_metadata = "has_personal_attack" 
-else:
-   label_metadata = None
+if corpus_name == "custom":
+   label_metadata = "provided_outcome"
 
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
 utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None # Name of the directory where the pre-processing files will be saved. This is used by the
-utt_label_metadata = "provided_outcome"
+utt_label_metadata = None
 # Name of the directory where the ConvoKit corpus objects will be saved. 
 corpora = "corpora" 
+# Name of the fine-tuning dataset to use for fine-tuning
+finetune_data = "kodis"
 
 # define file locations
 data_dir = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
@@ -44,9 +46,9 @@ experiments_dir = os.path.join(repo_dir, "experiments")
 
 #saved locations for corpus objects:
 corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
-#saved direcory for fine-tuning data:
-fine_raw_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "raw") # Where to save the raw data files
-fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "processed") # Where to save the processed data files
+#saved directory for fine-tuning dataset:
+fine_raw_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "raw", finetune_data) # Where to save the raw data files
+fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "processed", finetune_data) # Where to save the processed data files
 
 #phrases to exlude from pretraining:
 pretrain_exclude_phrases = []
@@ -54,13 +56,13 @@ pretrain_case = False
 pretrain_include_AI = True
 pretrain_utterance_metadata = []
 pretrain_convo_metadata = []
-#phrases to exlude from fine-tuning:
+
+# phrases to exlude from fine-tuning:
 finetune_exclude_phrases = []
 finetune_case = False
 finetune_include_AI = True
 finetune_utterance_metadata = ["predictions", "scores"]
-finetune_convo_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome"
-    ,"s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"]
+finetune_convo_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome", "s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"]
 
 # Configure model architecture parameters
 attn_model = 'general'
@@ -82,39 +84,52 @@ learning_rate = 0.0001 # Learning rate to use during pre-training
 labeled_learning_rate = 1e-5 # Learning rate to use during fine-tuning
 decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
-forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
+# forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
+forecast_thresh
 
 #Optimizer:
-# Optimizer to use, options: 'adam', 'sgd', 'adagrad', etc
+#Options: 'adam', 'sgd'
 optimizer_type = 'adam'  
 patience = 5
 factor = .1
 threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 
-#Paramaters to handle data imbalance stratgey
-#Imbalance handling strategy. Options: "none", "stratified", "downsampling, 
+#Imbalance Strategy:
+#Options: "none", "stratified", "downsampling, 
 Imbalance_handling = "none"
 
-#Parameters for loss function:
-loss_function = 'bce'  # Loss function to use, options: 'bce' for binary cross-entropy, 'mse' for mean squared error
+#Loss:
+#Options: any loss function from nn.modules.loss. See "__all__" 
+loss_function = 'BCEWithLogitsLoss'  
 pos_weight = 1
 #type of device
 device = "cuda" 
 
-#train-test split strategy
+#Number of Folds
 k_folds = 5
+#Options: any score metric name from sklearn.metrics. See "get_score_names"
 score_function = 'accuracy'
 val_size = .2
 train_size =.6
 
-#set random seed
+#Classifier type:
+#Options: "sigle-target"
+classifier_type = 'single_target'
+
+
+#Random Seed
+#controls: train/test/split
+#**shuffle in batch splits should stay randommized**
 random_seed = 42
 
-#Experiment config
-experiment_name = None
+#Experiment Files
+experiment_name = "test"
 experiment_model_dir = os.path.join(experiments_dir, experiment_name, "models")
-experiment_train_dir = os.path.join(experiments_dir, experiment_name, "train_history")
+experiment_train_dir = os.path.join(experiments_dir, experiment_name, "training")
+experiment_results_dir = os.path.join(experiments_dir, experiment_name, "results")
+experiment_config_dir = os.path.join(experiments_dir, experiment_name, "config")
+experiment_plots_dir = os.path.join(experiments_dir, experiment_name, "plots")
 
 
 

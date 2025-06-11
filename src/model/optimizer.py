@@ -14,7 +14,7 @@ class OptimizerWithScheduler:
             mode = mode, 
             factor=factor,
             patience=patience,
-            thresold=threshold,
+            threshold=threshold,
         )
         self.clip = clip
     

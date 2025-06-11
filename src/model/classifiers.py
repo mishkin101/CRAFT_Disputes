@@ -65,7 +65,6 @@ class SingleTargetClf(nn.Module):
         # Then we expand it accordingly
         # (1, batch_size, 1) -> (1, batch_size, hidden_size) 
         lengths = lengths.expand((1, -1, encoder_outputs.size(2)))
-
         # take only the last state of the encoder for each batch
         last_outputs = torch.gather(encoder_outputs, 0, lengths-1).squeeze()
         # forward pass through hidden layers

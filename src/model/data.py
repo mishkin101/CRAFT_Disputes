@@ -8,6 +8,7 @@ from convokit import Corpus
 from sklearn.model_selection import StratifiedKFold, train_test_split, KFold
 from sklearn.utils import resample
 import numpy as np 
+import pandas as pd
 
 from .config import *
 
@@ -385,3 +386,41 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
     val_pairs   = make_pairs_for_split(splits["val"],last_only_val)
     test_pairs  = make_pairs_for_split(splits["test"], last_only_test)
     return train_pairs, val_pairs, test_pairs
+
+
+def updateUtterances(utt_df, results):
+    results_df = pd.DataFrame.from_dict(results, orient="index")
+    results_df.index.name = "comment_id"
+    results_df = results_df.rename(columns=lambda c: f"meta.{c}")
+    return utt_df.merge(
+        results_df,
+        how="right",
+        left_index=True,
+        right_index=True
+    )
+
+def updateConvos(convo_df, results):
+    conv_acc = {}
+    for comment_id, res in results.items():
+        if "_" not in comment_id:
+            continue
+        conv_id = comment_id.rsplit("_", 1)[1]
+        if conv_id not in conv_acc:
+            conv_acc[conv_id] = {"probs": [], "preds": []}
+        conv_acc[conv_id]["probs"].append(res["probability"])
+        conv_acc[conv_id]["preds"].append(res["prediction"])
+    rows = []
+    for conv_id, vals in conv_acc.items():
+        max_prob = max(vals["probs"])
+        any_pred = 1 if any(p == 1 for p in vals["preds"]) else 0
+        rows.append({"conversation_id": f"utt0_{conv_id}",
+                     "meta.forecast_score": max_prob,
+                     "meta.forecast_prediction": any_pred})
+    conv_results_df = pd.DataFrame(rows).set_index("conversation_id")
+
+    return convo_df.merge(
+        conv_results_df,
+        how="right",
+        left_index=True,
+        right_index=True
+    )
