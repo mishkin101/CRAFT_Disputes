@@ -1,11 +1,9 @@
-from sklearn.model_selection import train_test_split
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-import numpy as np
-import pandas as pd
-from typing import Type
-from sklearn.metrics import get_scorer_names, get_scorer
-import torch.nn.functional as F
 from functools import partial
+from collections import defaultdict
+from typing import Type
+from sklearn.metrics import get_scorer
+import torch.nn.functional as F
+
 
 
 # import all configuration variables
@@ -93,9 +91,9 @@ def loadDevice():
     else:
         return torch.device('cpu')
 
-"""Load Pretrained Model"""
+"""Load Pretrained Model checkpoint"""
 def loadPretrainedModel():
-    model_path = os.path.join(save_dir, "model.tar")
+    model_path = os.path.join(save_dir_pretrain, pretrained_model)
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
     if device.type == 'cuda':
@@ -111,7 +109,7 @@ def setClassifierHead():
     if classifier_type == 'single_target':
         single_clf = SingleTargetClf(hidden_size, dropout)
         return single_clf
-    raise ValueError(f"Unsupported classifier type: {class_type}")
+    raise ValueError(f"Unsupported classifier type")
 
 
 """Build Contect encoder, decoder, and classifier"""
@@ -201,11 +199,14 @@ Parameters:
 def classificationThreshold(scores):
     return (scores > forecast_thresh).float()
 
-"""return validation score metric"""
+"""return validation score metrics"""
 def valScore(preds, labels):
-    scorer_obj = get_scorer(score_function)
-    metric_fn   = scorer_obj._score_func
-    return metric_fn(labels, preds)
+    results = {}
+    for score_fn in score_functions:
+        scorer_obj = get_scorer(score_functions)
+        metric_fn   = scorer_obj._score_func
+        results[score_fn] = metric_fn(labels, preds)
+    return results
 
 """return scores from predictor"""
 def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
@@ -238,52 +239,49 @@ def evaluate(pairs, craft_model):
                 }
     return results                                                
 
-def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
-    best_val_score = 0
-    best_epoch =0
-    epoch_train_loss = []
-    epoch_val_scores= []
+
+
+def trainEpoch(train_pairs, val_pairs, craft_model, epoch_iterations, voc, total_loss, epoch):
     batch_losses = []
     print_every = max(1, epoch_iterations // 10)
     batch_iterator = batchIterator(voc, train_pairs, batch_size)
-    for epoch in range(finetune_epochs):
-        total_loss =0
-        for iteration in range(0, epoch_iterations):
-            training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
-            input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, *_ = training_batch
-            dialog_lengths_list = [len(x) for x in training_dialogs]
-            loss = train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
-            total_loss += loss
-            if iteration % print_every == 0:
-                batch_losses.append({"epoch": epoch, "iteration": iteration,"loss": loss})
-                print("train loss is:", loss)
+    craft_model.train()
+    for iteration in range(0, epoch_iterations):
+        training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
+        input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, *_ = training_batch
+        dialog_lengths_list = [len(x) for x in training_dialogs]
+        loss = train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
+        total_loss += loss
+        if iteration % print_every == 0:
+            batch_losses.append({"epoch": epoch, "iteration": iteration,"loss": loss})
+            print("train loss is:", loss)
+    return {"batch_losses": batch_losses}
+
+def evalEpoch(val_pairs, craft_model, total_loss, epoch):
         craft_model.eval()
         results = evaluate(val_pairs, craft_model)
         all_preds  = [ entry["prediction"] for entry in results.values() ]
         all_labels = [ entry["label"]      for entry in results.values() ]
-        val_score = valScore(all_preds, all_labels)
-        if val_score > best_val_score:
-            best_val_score = val_score
-            best_epoch = epoch
-        craft_model.optimizer.epochStep(val_score)
-        epoch_train_loss.append({"epoch": epoch, "loss": total_loss})
-        epoch_val_scores.append({"epoch": epoch, "loss": val_score})
-        print(f"[Epoch {epoch}/{finetune_epochs}] train_loss={loss:.4f}  val_score={val_score:.4f}")
-        print("epoch train loss is:", loss)
-        print("epoch val score is:", val_score)
-        craft_model.train()
-    return {
-        "epoch_train_loss":  epoch_train_loss,   
-        "epoch_val_scores":  epoch_val_scores,
-        "best_val_score":    best_val_score,
-        "best_epoch":        best_epoch,
-        "batch_losses":      batch_losses
-    }
+        val_scores = valScore(all_preds, all_labels)
+        craft_model.optimizer.epochStep(val_scores['accuracy'])
+        val_scores["loss"] = total_loss
+        return {"epoch": epoch, "val_scores": val_scores}
 
+def average_across_folds(all_folds):
+    n_folds = len(all_folds)
+    n_epochs = len(all_folds[0]) 
+    mean_per_epoch = []
+    for epoch in range(n_epochs):
+        sums = defaultdict(float)
+        for fold in all_folds:
+            scores = fold[epoch]["val_scores"]
+            for metric, value in scores.items():
+                sums[metric] += value
+        means = {metric: sums[metric] / n_folds for metric in sums}
+        mean_per_epoch.append({"epoch": epoch, "mean_val_scores": means})
+    return mean_per_epoch
 
-
-
-def main(config):
+def finetune_craft(config):
     globals().update(config)
     #handle logic for loading data:
     utterance_metadata = finetune_utterance_metadata 
@@ -295,9 +293,7 @@ def main(config):
     #load device:
     device = loadDevice()
     #handle loading pre-trained model:
-    model_path = os.path.join(save_dir_pretrain, pretrain_model)
-    pretrained_checkpoint = torch.load(f= model_path, map_location = device)
-    pretrain_model = loadPretrainedModel(pretrained_checkpoint)
+    pretrained_checkpoint = loadPretrainedModel()
     #handle loading pre-trained model artifacts:
     embedding, encoder, context_encoder, attack_clf, voc = loadCheckpoint(pretrained_checkpoint)
     #load optimzer:
@@ -319,33 +315,29 @@ def main(config):
     train_val_id_list = createTrainValSplit(X_train)
     # Collect the full validation‐score history from each fold (not just the single best model).
     # Average those fold histories epoch-wise to find which epoch maximizes the mean validation score across folds.
+    all_folds =[]
     for fold, pair in enumerate(train_val_id_list, start=1):
+        fold_metrics =[]
         model_dir, train_dir, results_dir, plots_dir, config_dir = build_fold_directories(fold)
         convo_dataframe_fold = assignSplit(convo_dataframe, train_ids=pair[0], val_ids=pair[1])
         train_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_train, split_key="train")
         val_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_val, split_key="val")
         #create epoch iterations:
         epoch_iters = computerIterations(train_pairs)
-        train_dict = trainIter(train_pairs, val_pairs, craft_model, epoch_iters)
-        #save training results:
-        save_experiment_results_train(train_dir, train_dict)
-
-
-
-
-
-
-
-    # 1 single train/test split
-    # k-fold for hyper-parameter evaluation -> aggregate by val accuracy
-
-
-
-
-
-
-
-    return
+        total_loss = 0
+        for epoch in range(finetune_epochs +1, start =1):
+            batch_metrics = trainEpoch(train_pairs, val_pairs, craft_model, epoch_iters, voc, total_loss, epoch)
+            epoch_metrics = evalEpoch(val_pairs, craft_model, total_loss, epoch)
+            if ray_tune:
+                tune.report(**epoch_metrics["val_scores"])
+            #save training results for each fold:
+            save_experiment_results_train_batch(train_dir, batch_metrics)
+            save_experiment_results_train_epoch(train_dir, epoch_metrics)
+            fold_metrics.append(epoch_metrics)
+    all_folds.append(fold_metrics)
+    mean_results = average_across_folds(all_folds)
+    save_avg_metrics(experiment_dir, mean_results)
+   
 
 
 
@@ -459,7 +451,7 @@ def main(config):
 """
 
 if __name__ == "__main__":
-    voc = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
+    print("finetune runner")
 
     
 

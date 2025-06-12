@@ -8,11 +8,22 @@ import sys
 import json
 
 """Handle logic for saving training metrics"""
-def save_experiment_results_train(out_dir, train_dict):
-    train_dir = os.path.join(out_dir, "train_metrics.txt")
-    with open(train_dir, "w") as f:
+def save_experiment_results_train_batch(out_dir, train_dict):
+    train_dir = os.path.join(out_dir, "batch_metrics.txt")
+    with open(train_dir, "w+") as f:
         json.dump(train_dict, f, indent=2)
 
+"""Handle logic for saving training metrics"""
+def save_experiment_results_train_epoch(out_dir, train_dict):
+    train_dir = os.path.join(out_dir, "epoch_metrics.txt")
+    with open(train_dir, "w+") as f:
+        json.dump(train_dict, f, indent=2)
+
+"""Handle logic for saving average metrics"""
+def save_avg_metrics(out_dir, train_dict):
+    train_dir = os.path.join(out_dir, "avg_metrics.txt")
+    with open(train_dir, "w") as f:
+        json.dump(train_dict, f, indent=2)
 
 """Handle logic for saving CRAFT model"""
 def save_experiment_model(craft_model):

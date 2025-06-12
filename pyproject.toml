@@ -17,6 +17,7 @@ dependencies = [
   "optuna>=4.3.0",
   "pandas>=2.2.3",
   "pytest>=8.3.5",
+  "ray[air,tune]>=2.47.0",
   "sphinx>=8.2.3",
 ]
 

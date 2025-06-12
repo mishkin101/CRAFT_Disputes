@@ -121,9 +121,9 @@ pos_weight = 1
 device = "cuda" 
 
 #Number of Folds
-k_folds = 5
+k_folds = 3
 #Options: any score metric name from sklearn.metrics. See "get_score_names"
-score_function = 'accuracy'
+score_functions = ['accuracy']
 val_size = .2
 train_size =.6
 
@@ -139,13 +139,10 @@ random_seed = 42
 
 #Experiment Files
 experiment_name = "test"
-experiment_model_dir = os.path.join(experiments_dir, experiment_name, "best_model")
-# experiment_train_dir = os.path.join(experiments_dir, experiment_name, "training")
-# experiment_results_dir = os.path.join(experiments_dir, experiment_name, "results")
-# experiment_config_dir = os.path.join(experiments_dir, experiment_name, "config")
-# experiment_plots_dir = os.path.join(experiments_dir, experiment_name, "plots")
+experiment_dir = os.path.join(experiments_dir, experiment_name)
 
-
+#Enable Ray-Tune:
+ray_tune = True
 
 # Default word tokens
 PAD_token = 0  # Used for padding short sentences
