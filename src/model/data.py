@@ -310,12 +310,14 @@ def createTrainValSplit(convo_df_train):
         train_ids, val_ids = train_test_split(convo_ids, test_size=test_size, random_state=random_seed)
         return [(train_ids, val_ids)]
 
-def assignSplit(convo_df, train_ids, val_ids, test_ids):
+def assignSplit(convo_df, train_ids, test_ids= None, val_ids = None):
     df = convo_df.copy()
     df["meta.split"] = None
     df.loc[train_ids, "meta.split"] = "train"
-    df.loc[val_ids,   "meta.split"] = "val"
-    df.loc[test_ids,  "meta.split"] = "test"
+    if val_ids is not None:
+        df.loc[val_ids,   "meta.split"] = "val"
+    if test_ids is not None:
+        df.loc[test_ids,  "meta.split"] = "test"
     return df
 
 def downsample(convo_df, train_ids):
@@ -349,14 +351,12 @@ def processLabeledDialogs(utt_df, voc):
         utt_df["is_attack"] = (utt_df[f"meta.{utt_label_metadata}"].fillna(0).astype(int))
     return utt_df
 
-def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_only_test):
+def loadLabeledPairs(voc, utt_df, conv_df, last_only, split_key):
     utts = processLabeledDialogs(utt_df, voc)
     # Prepare split IDs
     splits = {}
-    for split in ("train", "val", "test"):
-        ids = conv_df.index[conv_df["meta.split"] == split].unique()
-        splits[split] = set(ids)
-
+    ids = conv_df.index[conv_df["meta.split"] == split_key].unique()
+    splits[split_key] = set(ids)
 
     """***//TODO: #2 make this more generic, so that it can be used for anytpe of label***"""
     def make_pairs_for_split(ids_set, last_only):
@@ -365,7 +365,7 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
             dialog_df['label'] = dialog_df.index
             dialog = dialog_df[["tokens", "is_attack", 'label']].to_dict("records")
             #If we only have conversation-level labels, we assume the entire dialog 
-            # is a context since it does not include a derailment devent. therefore, last comment needs to be encoded
+            # is a context since it does not include a derailment event. therefore, last comment needs to be encoded
             if utt_label_metadata is None:
                 if label_metadata is None:
                     raise ValueError("If utt_label_metadata is None, label_metadata must be provided to identify the conversation label.")
@@ -382,10 +382,8 @@ def loadLabeledPairs(voc,utt_df, conv_df, last_only_train, last_only_val,last_on
                 comment_id = dialog[idx - 1]["label"]
                 pairs.append((context, reply, label, comment_id))
         return pairs
-    train_pairs = make_pairs_for_split(splits["train"],last_only_train)
-    val_pairs   = make_pairs_for_split(splits["val"],last_only_val)
-    test_pairs  = make_pairs_for_split(splits["test"], last_only_test)
-    return train_pairs, val_pairs, test_pairs
+    pairs = make_pairs_for_split(splits["train"], last_only)
+    return pairs
 
 
 def updateUtterances(utt_df, results):

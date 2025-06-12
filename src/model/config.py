@@ -71,6 +71,12 @@ finetune_include_AI = True
 finetune_utterance_metadata = ["predictions", "scores"]
 finetune_convo_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome", "s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"]
 
+#context selection for train and test:
+last_only_train = True
+last_only_val = True
+last_only_test = False
+
+
 # Configure model architecture parameters
 attn_model = 'general'
 MAX_LENGTH = 80  # Maximum sentence length to consider
@@ -133,11 +139,11 @@ random_seed = 42
 
 #Experiment Files
 experiment_name = "test"
-experiment_model_dir = os.path.join(experiments_dir, experiment_name, "models")
-experiment_train_dir = os.path.join(experiments_dir, experiment_name, "training")
-experiment_results_dir = os.path.join(experiments_dir, experiment_name, "results")
-experiment_config_dir = os.path.join(experiments_dir, experiment_name, "config")
-experiment_plots_dir = os.path.join(experiments_dir, experiment_name, "plots")
+experiment_model_dir = os.path.join(experiments_dir, experiment_name, "best_model")
+# experiment_train_dir = os.path.join(experiments_dir, experiment_name, "training")
+# experiment_results_dir = os.path.join(experiments_dir, experiment_name, "results")
+# experiment_config_dir = os.path.join(experiments_dir, experiment_name, "config")
+# experiment_plots_dir = os.path.join(experiments_dir, experiment_name, "plots")
 
 
 

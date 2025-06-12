@@ -22,6 +22,8 @@ from model.optimizer import *
 from utils.data_processing import DataProcesser
 #import corpys utilities
 from utils.corpus_utils import *
+#import file utils
+from utils.file_utils import *
 
 
 # DEFAULT_CONFIG = {
@@ -147,7 +149,9 @@ def toDevice(tensor):
 def computerIterations(train_pairs):
     n_iter_per_epoch = len(train_pairs) // batch_size + int(len(train_pairs) % batch_size == 1)
     # n_iteration = n_iter_per_epoch * finetune_epochs
-    return n_iter_per_epoch#, n_iteration
+    return n_iter_per_epoch
+
+
 
 """Create Optimizers and schedulers for training"""
 """Models: models[0]: encoder, models[1]: context_encoder, models[2]:attack_clf"""
@@ -236,18 +240,23 @@ def evaluate(pairs, craft_model):
 
 def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
     best_val_score = 0
-    train_history = []
-    val_history = []
-    best_model_path =None
+    best_epoch =0
+    epoch_train_loss = []
+    epoch_val_scores= []
+    batch_losses = []
+    print_every = max(1, epoch_iterations // 10)
+    batch_iterator = batchIterator(voc, train_pairs, batch_size)
     for epoch in range(finetune_epochs):
         total_loss =0
-        for iteration in range(1, epoch_iterations +1):
+        for iteration in range(0, epoch_iterations):
             training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
-            batch_iterator = batchIterator(voc, train_pairs, batch_size)
             input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, *_ = training_batch
             dialog_lengths_list = [len(x) for x in training_dialogs]
             loss = train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
             total_loss += loss
+            if iteration % print_every == 0:
+                batch_losses.append({"epoch": epoch, "iteration": iteration,"loss": loss})
+                print("train loss is:", loss)
         craft_model.eval()
         results = evaluate(val_pairs, craft_model)
         all_preds  = [ entry["prediction"] for entry in results.values() ]
@@ -255,14 +264,21 @@ def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
         val_score = valScore(all_preds, all_labels)
         if val_score > best_val_score:
             best_val_score = val_score
-            saveModel(craft_model, loss, epoch)
-            best_model_path = os.path.join(experiment_model_dir, f"{experiment_name}_best_epoch_{epoch}.tar") 
+            best_epoch = epoch
         craft_model.optimizer.epochStep(val_score)
-        train_history.append(total_loss)
-        val_history.append(val_score)
+        epoch_train_loss.append({"epoch": epoch, "loss": total_loss})
+        epoch_val_scores.append({"epoch": epoch, "loss": val_score})
         print(f"[Epoch {epoch}/{finetune_epochs}] train_loss={loss:.4f}  val_score={val_score:.4f}")
+        print("epoch train loss is:", loss)
+        print("epoch val score is:", val_score)
         craft_model.train()
-    return train_history, val_history, best_model_path
+    return {
+        "epoch_train_loss":  epoch_train_loss,   
+        "epoch_val_scores":  epoch_val_scores,
+        "best_val_score":    best_val_score,
+        "best_epoch":        best_epoch,
+        "batch_losses":      batch_losses
+    }
 
 
 
@@ -281,20 +297,49 @@ def main(config):
     #handle loading pre-trained model:
     model_path = os.path.join(save_dir_pretrain, pretrain_model)
     pretrained_checkpoint = torch.load(f= model_path, map_location = device)
-    pretrain_model = loadPretrainedModel(pretrained_checkpoint):
-    #handle loading model artifacts:
-    embedding, encoder, context_encoder, attack_clf, voc = loadCheckpoint(checkpoint)
+    pretrain_model = loadPretrainedModel(pretrained_checkpoint)
+    #handle loading pre-trained model artifacts:
+    embedding, encoder, context_encoder, attack_clf, voc = loadCheckpoint(pretrained_checkpoint)
     #load optimzer:
     models = [encoder, context_encoder, attack_clf]
     optim = setOptimizer(models)
     loss_fn = setLossFunction()
     #create predictor that stores activation function:
     activation_fn = setPredictorActivation()
-    predictor = setPredictor(activation_fn)
+    predictor = Predictor(activation_fn)
     #create CRAFT Pipeline:
-    craft = CraftPipeline(encoder, context_encoder, attack_clf, voc, optim, predictor, loss_fn)
+    craft_model = CraftPipeline(encoder, context_encoder, attack_clf, voc, optim, predictor, loss_fn)
+
     #create training logic:
-    
+    X_train_id, X_test_id, y_train_id, y_test_id = createTrainTestSplit(convo_dataframe)
+    convo_dataframe_main = assignSplit(convo_dataframe, train_ids=X_train_id, test_ids=X_test_id)
+    X_train = convo_dataframe.loc[X_train_id]
+    X_test = convo_dataframe.loc[X_test_id]
+    #same splits for each k-fold index
+    train_val_id_list = createTrainValSplit(X_train)
+    # Collect the full validation‐score history from each fold (not just the single best model).
+    # Average those fold histories epoch-wise to find which epoch maximizes the mean validation score across folds.
+    for fold, pair in enumerate(train_val_id_list, start=1):
+        model_dir, train_dir, results_dir, plots_dir, config_dir = build_fold_directories(fold)
+        convo_dataframe_fold = assignSplit(convo_dataframe, train_ids=pair[0], val_ids=pair[1])
+        train_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_train, split_key="train")
+        val_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_val, split_key="val")
+        #create epoch iterations:
+        epoch_iters = computerIterations(train_pairs)
+        train_dict = trainIter(train_pairs, val_pairs, craft_model, epoch_iters)
+        #save training results:
+        save_experiment_results_train(train_dir, train_dict)
+
+
+
+
+
+
+
+    # 1 single train/test split
+    # k-fold for hyper-parameter evaluation -> aggregate by val accuracy
+
+
 
 
 
