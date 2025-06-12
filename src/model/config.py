@@ -28,27 +28,34 @@ if corpus_name == "custom":
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
-utt_label_metadata = "comment_has_personal_attack" if corpus_name == "wikiconv" else None # Name of the directory where the pre-processing files will be saved. This is used by the
-utt_label_metadata = None
+if corpus_name == "wikiconv": 
+   utt_label_metadata = "comment_has_personal_attack" 
+if corpus_name == "cmv": 
+   utt_label_metadata = None
+if corpus_name == "custom":
+   utt_label_metadata = None
 # Name of the directory where the ConvoKit corpus objects will be saved. 
 corpora = "corpora" 
 # Name of the fine-tuning dataset to use for fine-tuning
 finetune_data = "kodis"
-
+#Name of the pretrained model file:
+pretrained_model = "model.tar"
 # define file locations
 data_dir = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
-save_dir = os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
+save_dir_pretrain = os.path.join(repo_dir, "saved_models", corpus_name, "pretrained_models", corpus_name)
+save_dir_finetune = os.path.join(repo_dir, "saved_models", corpus_name, "finetuned_models",  corpus_name)
+
+# os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
+corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
 train_path = os.path.join(data_dir, "nn_input_data", corpus_name, "train_processed_dialogs.txt") # File containing unlabeled data for pre-training
 word2index_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "word2index.json") # These two files jointly define the
 index2word_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
 experiments_dir = os.path.join(repo_dir, "experiments")
 
 
-#saved locations for corpus objects:
-corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
 #saved directory for fine-tuning dataset:
-fine_raw_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "raw", finetune_data) # Where to save the raw data files
-fine_processed_dir = os.path.join(data_dir, "fine-tuning-preprocessing", "processed", finetune_data) # Where to save the processed data files
+fine_raw_dir = os.path.join(data_dir, "finetuning_preprocessing", "raw", finetune_data) # Where to save the raw data files
+fine_processed_dir = os.path.join(data_dir, "finetuning_preprocessing", "processed", finetune_data) # Where to save the processed data files
 
 #phrases to exlude from pretraining:
 pretrain_exclude_phrases = []
@@ -85,7 +92,7 @@ labeled_learning_rate = 1e-5 # Learning rate to use during fine-tuning
 decoder_learning_ratio = 5.0 # Learning rate multiplier on the decoder layers
 print_every = 10 # How often to print output to the screen (measured in training iterations)
 # forecast_thresh = 0.570617 if corpus_name == "wikiconv" else 0.548580 # CRAFT score above which the forecast is considered positive. The default values were tuned on validation data for each corpus.
-forecast_thresh
+forecast_thresh = .5
 
 #Optimizer:
 #Options: 'adam', 'sgd'
@@ -94,6 +101,7 @@ patience = 5
 factor = .1
 threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
+scheduling = True
 
 #Imbalance Strategy:
 #Options: "none", "stratified", "downsampling, 
@@ -116,7 +124,7 @@ train_size =.6
 #Classifier type:
 #Options: "sigle-target"
 classifier_type = 'single_target'
-
+activation = "sigmoid"
 
 #Random Seed
 #controls: train/test/split

@@ -45,9 +45,7 @@ class SingleTargetClf(nn.Module):
     """
     def __init__(self, hidden_size, dropout=0.1):
         super(SingleTargetClf, self).__init__()
-        
         self.hidden_size = hidden_size
-        
         # initialize classifier
         self.layer1 = nn.Linear(hidden_size, hidden_size)
         self.layer1_act = nn.LeakyReLU()
@@ -55,7 +53,6 @@ class SingleTargetClf(nn.Module):
         self.layer2_act = nn.LeakyReLU()
         self.clf = nn.Linear(hidden_size // 2, 1)
         self.dropout = nn.Dropout(p=dropout)
-        
     def forward(self, encoder_outputs, encoder_input_lengths):
         # from stackoverflow (https://stackoverflow.com/questions/50856936/taking-the-last-state-from-bilstm-bigru-in-pytorch)
         # First we unsqueeze seqlengths two times so it has the same number of
@@ -75,4 +72,13 @@ class SingleTargetClf(nn.Module):
         return logits
     
 
-"""================sklearn classifier======================="""
+"""================Predictor Heads======================="""
+class Predictor(nn.Module):
+    """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
+    def __init__(self, activation_fn):
+        super(Predictor, self).__init__()
+        self.activation = activation_fn
+        
+    def forward(self, logits):
+        predictions = self.activation(logits)
+        return predictions

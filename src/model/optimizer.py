@@ -9,13 +9,16 @@ class OptimizerWithScheduler:
     def __init__(self, optimizer, models):
         self.models = models
         self.optimizer = optimizer
-        self.scheduler = ReduceLROnPlateau(
-            self.optimizer,
-            mode = mode, 
-            factor=factor,
-            patience=patience,
-            threshold=threshold,
-        )
+        if scheduling == True:
+            self.scheduler = ReduceLROnPlateau(
+                self.optimizer,
+                mode = mode, 
+                factor=factor,
+                patience=patience,
+                threshold=threshold,
+            )
+        else:
+            self.scheduler = None
         self.clip = clip
     
 

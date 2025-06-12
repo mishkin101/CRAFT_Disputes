@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from typing import Type
 from sklearn.metrics import get_scorer_names, get_scorer
+import torch.nn.functional as F
+from functools import partial
 
 
 # import all configuration variables
@@ -32,13 +34,6 @@ from utils.corpus_utils import *
 #     "validation_size": 0.2,
 # }
 
-class Predictor(nn.Module):
-    """This helper module encapsulates the CRAFT pipeline, defining the logic of passing an input through each consecutive sub-module."""
-    def __init__(self):
-        super(Predictor, self).__init__()
-    def forward(logits):
-        predictions = F.sigmoid(logits)
-        return predictions
 
 
 """Main inference piepeline implementing CRAFT. Because it uses the parent nn.mModule class, we can call .train() or .eval() on
@@ -60,7 +55,7 @@ class CraftPipeline(nn.Module):
     def forward(self, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels, epoch):
         _, utt_encoder_hidden = self.encoder(input_batch, utt_lengths)
         context_encoder_input = makeContextEncoderInput(utt_encoder_hidden, dialog_lengths_list, batch_size, batch_indices, dialog_indices)
-        context_encoder_outputs, context_encoder_hidden = self.context_encoder(context_encoder_input, dialog_lengths)
+        context_encoder_outputs, _= self.context_encoder(context_encoder_input, dialog_lengths)
         logits = self.classifier(context_encoder_outputs, dialog_lengths)
         if self.training:
             if labels is None:
@@ -110,27 +105,28 @@ def loadPretrainedModel():
     return checkpoint
 
 """Create Classifier Head"""
-def createClassifierHead():
+def setClassifierHead():
     if classifier_type == 'single_target':
-        return SingleTargetClf(hidden_size, dropout)
+        single_clf = SingleTargetClf(hidden_size, dropout)
+        return single_clf
     raise ValueError(f"Unsupported classifier type: {class_type}")
 
+
 """Build Contect encoder, decoder, and classifier"""
-def loadCheckpointandMode(checkpoint, classifier_type = 'single_target', mode = 'train'):
+def loadCheckpoint(checkpoint):
     # Instantiate your modules
     voc             = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
+    attack_clf      = setClassifierHead()
     embedding       = nn.Embedding(voc.num_words, hidden_size)
     encoder         = EncoderRNN(hidden_size, embedding, encoder_n_layers, dropout)
     context_encoder = ContextEncoderRNN(hidden_size, context_encoder_n_layers, dropout)
-    voc.__dict__    = (checkpoint['voc_dict'])
-    attack_clf      = createClassifierHead(classifier_type)
     # Load weights
     embedding.load_state_dict(checkpoint['embedding'])
     encoder.load_state_dict(checkpoint['en'])
     context_encoder.load_state_dict(checkpoint['ctx'])
+    if "atk_clf" in checkpoint:
+        attack_clf.load_state_dict(checkpoint["atk_clf"])
     voc.__dict__ = checkpoint['voc_dict']
-    """=======MOVE TODEVICE() TO MAIN?======="""
-    # toDevice([encoder,context_encoder, attack_clf])
     return embedding, encoder, context_encoder, attack_clf, voc
 
 """Convert Tensor to Device"""
@@ -145,7 +141,6 @@ def toDevice(tensor):
                   v  = toDevice(v, device) 
         else:
             raise TypeError(f"Unsupported type: {type(tensor)}")
-
 
 
 """Compute training Iterations"""
@@ -176,8 +171,14 @@ def setLossFunction():
         else:
             raise ValueError(f"`{loss_function}` is not a callable or nn.Module subclass")
 
-
-
+"""Create activation function for Predictor Module from nn.functional"""
+def setPredictorActivation(**kwargs):
+    name = activation.lower()
+    if not hasattr(F, name):
+        raise ValueError(f"`{activation}` is not a valid torch.nn.functional activation")
+    func = getattr(F, name)
+    # Wrap in partial to bind kwargs (e.g. dim for softmax)
+    return partial(func, **kwargs)
     
 """
 Training Harness
@@ -267,7 +268,35 @@ def trainIter(train_pairs, val_pairs, craft_model, epoch_iterations):
 
 
 def main(config):
+    globals().update(config)
+    #handle logic for loading data:
+    utterance_metadata = finetune_utterance_metadata 
+    conversation_metadata = finetune_convo_metadata
+    loaded_corpus = loadDataset()
+    #get conversations and utterances dataframe:
+    convo_dataframe = loaded_corpus.get_conversations_dataframe()
+    utterance_dataframe = loaded_corpus.get_utterances_dataframe()
+    #load device:
+    device = loadDevice()
+    #handle loading pre-trained model:
+    model_path = os.path.join(save_dir_pretrain, pretrain_model)
+    pretrained_checkpoint = torch.load(f= model_path, map_location = device)
+    pretrain_model = loadPretrainedModel(pretrained_checkpoint):
+    #handle loading model artifacts:
+    embedding, encoder, context_encoder, attack_clf, voc = loadCheckpoint(checkpoint)
+    #load optimzer:
+    models = [encoder, context_encoder, attack_clf]
+    optim = setOptimizer(models)
+    loss_fn = setLossFunction()
+    #create predictor that stores activation function:
+    activation_fn = setPredictorActivation()
+    predictor = setPredictor(activation_fn)
+    #create CRAFT Pipeline:
+    craft = CraftPipeline(encoder, context_encoder, attack_clf, voc, optim, predictor, loss_fn)
+    #create training logic:
     
+
+
 
 
 
