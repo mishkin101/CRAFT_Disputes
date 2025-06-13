@@ -1,25 +1,27 @@
 # CRAFT – Custom KODIS Implementation
 
-This repository contains our tailored implementation of the **Conversational Recurrent Architecture for ForecasTing (CRAFT)** neural model, originally introduced in the EMNLP 2019 paper “Trouble on the Horizon: Forecasting the Derailment of Online Conversations as they Develop.” Here, we show how to plug in your **KODIS** dataset in place of the original demo corpora.
+This repository contains our tailored implementation of the **Conversational Recurrent Architecture for ForecasTing (CRAFT)** neural model, originally introduced in the EMNLP 2019 paper [Trouble on the Horizon: Forecasting the Derailment of Online Conversations as they Develop](https://arxiv.org/abs/1909.01362) to the dispute resolution domain. We pre-train the CRAFT model architecture with a custom corpus of CaSiNo, Deal no Deal, and KODIS dialogs and finetune on the  **KODIS** dataset to research whether we can learn unsupervised representation of conversational dynamics in negotiation-based dialogues and expoit the structure via supervised learning in fine-tune for predicting for outcomes in Dispute resolution (KODIS).
 
 ---
 
-## UPDATE April 2024
-
-If you have previously run this code on any other dataset, please pull the latest changes—especially if you worked on **CGA-CMV**. A bug affecting CGA-CMV processing was fixed on April 24, 2024. Your results on CMV may change (for the better!), but **KODIS**–based runs are unaffected by that issue.
-
+# 1. Prerequisites
+- Python 3.8+
+- PyTorch 1.10+
+- Ray 2.x (Tune & AIR)
+- MLflow 2.x
+- ConvoKit 3.x
+scikit-learn, pandas, matplotlib, NLTK
 ---
 
-## Prerequisites
+# 2. Fine-tuning on KODIS with Ray Tune & MLflow
+Everything is orchestrated in `src/runners/raytune.py`. By default it will:
 
-- **Python** ≥ 3.6 (validated up through 3.8)  
-- **PyTorch** ≥ 1.5  
-- **ConvoKit** ≥ 1.3  
-- **NLTK**, **pandas**, **matplotlib**  
+- Perform k-fold cross-validation on your train split of KODIS.
 
-We recommend using Anaconda:
+- Report per-fold batch losses and mean validation metrics each epoch via tune.report.
 
-```bash
-conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
-pip install convokit
-conda install nltk pandas matplotlib
+- Use ASHAScheduler to early-stop underperforming hyperparameter trials.
+
+- Log all parameters, metrics, and model artifacts to MLflow.
+
+---
