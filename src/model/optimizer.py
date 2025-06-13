@@ -30,7 +30,7 @@ class OptimizerWithScheduler:
             torch.nn.utils.clip_grad_norm_(self.optimizer.parameters(), self.clip)
             self.optimizer.step()
 
-    def epochStep(self,epoch_val_score):
+    def epochStep(self, epoch_val_score):
         """Call this once per validation epoch."""
         for model in self.models:
             self.scheduler.step(epoch_val_score)

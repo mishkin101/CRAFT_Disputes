@@ -166,20 +166,19 @@ def corpusBuilder(data):
     convos = convos.set_index('id', drop=False)  # ensure 'id' is the index
     corpus_ob = Corpus.from_pandas(utterances_df=utts, speakers_df=speakers, conversations_df=convos)
     missing_in_convos = set(utts['conversation_id']) - set(convos['id'])
-    print("Utterance conversation_ids missing from convos.id:", missing_in_convos)
+    print(f"Utterance conversation_ids missing from convos.id: -> {len(missing_in_convos)}")
 
     # 2) Are there any convo IDs that no utterance refers to?
     unused_convos = set(convos['id']) - set(utts['conversation_id'])
-    print("Conversation ids in convos not used by any utterance:", unused_convos)
-
+    print(f"Conversation ids in convos not used by any utterance: -> {len(unused_convos)}")
     # 3) Quick boolean checks
     all_match = utts['conversation_id'].isin(convos['id']).all()
-    print("Every utterance.conversation_id exists in convos.id?", all_match)
+    print(f"Every utterance.conversation_id exists in convos.id?: -> {all_match}")
 
     all_used = convos['id'].isin(utts['conversation_id']).all()
-    print("Every convos.id is referred to by at least one utterance?", all_used)
-    print("Unique conversation_id’s in your utterance DF:",utts['conversation_id'].nunique())
-    print(utts['conversation_id'].unique()[:10])  # sample of the first few
+    print(f"Every convos.id is referred to by at least one utterance?: -> {all_used}")
+    print(f"Unique conversation_id’s in utterance DF: -> {utts['conversation_id'].nunique()}")
+    print(utts['conversation_id'].unique()[:2])  # sample of the first few
     return corpus_ob
 
 '''return: Speaker DataFrame'''
