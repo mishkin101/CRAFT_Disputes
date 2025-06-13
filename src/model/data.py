@@ -276,39 +276,56 @@ def createTrainFile():
 def createTrainTestSplit(convo_df):
     convo_ids = np.array(convo_df.index.tolist())
     convo_labels = convo_df[f"meta.{label_metadata}"].astype(int).values 
-    if Imbalance_handling == 'default' | "downsampling":
-        X_train, X_test, y_train, y_test = train_test_split(
-            convo_ids, convo_labels, test_size= 1-val_size-train_size, random_state=random_seed)
-    if Imbalance_handling == 'stratified':
-        X_train, X_test, y_train, y_test = train_test_split(
-            convo_ids, convo_labels, test_size= 1-val_size-train_size, stratify=convo_labels, random_state=random_seed)
-    return X_train, X_test, y_train, y_test
+    if imbalance_handling in ('none', 'downsampling'):
+        return train_test_split(convo_ids, convo_labels, test_size= 1-val_size-train_size, random_state=random_seed)
+    if imbalance_handling == 'stratified':
+         return train_test_split( convo_ids, convo_labels, test_size= 1-val_size-train_size, stratify=convo_labels, random_state=random_seed)
+
 
 """Only do train/val splits on training set"""
 def createTrainValSplit(convo_df_train):
     convo_ids    = np.array(convo_df_train.index.tolist())
     convo_labels = convo_df_train[f"meta.{label_metadata}"].astype(int).values
+    folds = []
     if k_folds > 1:
-        if Imbalance_handling == "stratified":
+        if imbalance_handling == "stratified":
             skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_seed)
-            folds = []
             for train_idx, val_idx in skf.split(convo_ids, convo_labels):
                 train_ids = convo_ids[train_idx]
                 val_ids   = convo_ids[val_idx]
                 folds.append((train_ids, val_ids))
             return folds
-        if Imbalance_handling == "downsample":
+        if imbalance_handling == "downsampling":
             kf = KFold(n_splits=k_folds, shuffle = True, random_state = random_seed)
-            for train_idx, val_idx in skf.split(convo_ids, convo_labels):
+            for train_idx, val_idx in kf.split(convo_ids, convo_labels):
                 train_ids = convo_ids[train_idx]
                 train_ids_down = downsample(convo_df_train, train_ids)
                 val_ids   = convo_ids[val_idx]
                 folds.append((train_ids_down, val_ids))
             return folds
+        else:
+            kf = KFold(n_splits=k_folds, shuffle = True, random_state = random_seed)
+            for train_idx, val_idx in kf.split(convo_ids, convo_labels):
+                train_ids = convo_ids[train_idx]
+                val_ids   = convo_ids[val_idx]
+                folds.append((train_ids, val_ids))
+            return folds
     else:
         test_size = val_size  
-        train_ids, val_ids = train_test_split(convo_ids, test_size=test_size, random_state=random_seed)
-        return [(train_ids, val_ids)]
+        if imbalance_handling == "downsampling":
+            train_ids, val_ids, *_ = train_test_split(convo_ids, convo_labels,test_size=test_size, random_state=random_seed)
+            train_ids_down = downsample(convo_df_train, train_ids)
+            folds.append((train_ids_down, val_ids))
+            return folds
+        if imbalance_handling == "stratified":
+            train_ids, val_ids, *_ = train_test_split( convo_ids, convo_labels, test_size= test_size, stratify=convo_labels, random_state=random_seed)
+            folds.append((train_ids, val_ids))
+            return folds
+        else:
+            train_ids, val_ids, *_ = train_test_split( convo_ids, convo_labels, test_size= test_size,  random_state=random_seed)
+            folds.append((train_ids, val_ids))
+            return folds
+
 
 def assignSplit(convo_df, train_ids, test_ids= None, val_ids = None):
     df = convo_df.copy()
@@ -382,7 +399,7 @@ def loadLabeledPairs(voc, utt_df, conv_df, last_only, split_key):
                 comment_id = dialog[idx - 1]["label"]
                 pairs.append((context, reply, label, comment_id))
         return pairs
-    pairs = make_pairs_for_split(splits["train"], last_only)
+    pairs = make_pairs_for_split(splits[split_key], last_only)
     return pairs
 
 
@@ -422,3 +439,4 @@ def updateConvos(convo_df, results):
         left_index=True,
         right_index=True
     )
+

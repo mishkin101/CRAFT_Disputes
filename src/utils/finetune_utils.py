@@ -10,6 +10,7 @@ from torch.nn import functional as F
 
 # import all configuration variables
 from model.config import *
+import model.config as cfg_mod
 # import data preprocessing functions
 from model.data import *
 # import CRAFT models
@@ -76,8 +77,10 @@ Get the corpus object from chosen directory
 If train mode: then return utterances and convo dataframe and perform context selection
 """
 def loadDataset():
-    data = DataProcesser(filepath=fine_raw_dir)
+    data = DataProcesser(filepath=fine_raw_file)
     contextSelection(data)
+    conversation_metadata = finetune_convo_metadata
+    utterance_metadata = finetune_utterance_metadata
     return corpusBuilder(data)
 
 """
@@ -97,15 +100,14 @@ def loadDevice():
 
 """Load Pretrained Model checkpoint"""
 def loadPretrainedModel():
-    model_path = os.path.join(save_dir_pretrain, pretrained_model)
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at {model_path}")
-    if device.type == 'cuda':
+    if not os.path.exists(pretrain_model_path):
+        raise FileNotFoundError(f"Model file not found at {pretrain_model_path}")
+    if device == 'cuda':
         print("Loading model on GPU")
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(pretrain_model_path)
     else:
         print("Loading model on CPU")
-        checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+        checkpoint = torch.load(pretrain_model_path, map_location=torch.device('cpu'))
     return checkpoint
 
 """Create Classifier Head"""
@@ -145,7 +147,8 @@ def toDevice(tensor):
                   v  = toDevice(v, device) 
         else:
             raise TypeError(f"Unsupported type: {type(tensor)}")
-
+        
+        print(f"Loaded tensors to device")
 
 """Compute training Iterations"""
 def computerIterations(train_pairs):
@@ -158,13 +161,21 @@ def computerIterations(train_pairs):
 """Create Optimizers and schedulers for training"""
 """Models: models[0]: encoder, models[1]: context_encoder, models[2]:attack_clf"""
 def setOptimizer(models):
-    models = nn.ModuleList([models[0], models[1], models[2]])
-    if optimizer_type == 'adam':
-        optimizer = torch.optim.Adam(models.parameters(), lr=learning_rate)
-    elif optimizer_type == 'sgd': 
-        optimizer = torch.optim.SGD(models.parameters(), lr=learning_rate, momentum=0.9)
-    opt_and_sched = OptimizerWithScheduler(models=models, optimizer=optimizer)
-    return opt_and_sched
+    try:
+        models = nn.ModuleList([models[0], models[1], models[2]])
+        if optimizer_type == 'adam':
+            optimizer = torch.optim.Adam(models.parameters(), lr=learning_rate)
+        if optimizer_type == 'sgd': 
+            optimizer = torch.optim.SGD(models.parameters(), lr=learning_rate, momentum=0.9)
+        print(f"Loading {optimizer_type} optimizer  with scheduler setting: {scheduling}")
+    except:
+         raise ValueError(f"`{optimizer_type}` is not a callable or torch.optim subclass")
+    try:
+        opt_and_sched = OptimizerWithScheduler(models=models, optimizer=optimizer)
+        return opt_and_sched
+    except:
+        raise ValueError(f"scheduler could not be configured")
+
 
 """Create loss funciton for training batch from nn.modules.loss"""
 def setLossFunction():
@@ -251,6 +262,7 @@ def evaluate(pairs, craft_model):
 
 
 def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoch):
+    print(f"starting training epoch {epoch}")
     batch_losses = []
     print_every = max(1, epoch_iterations // 10)
     batch_iterator = batchIterator(voc, train_pairs, batch_size)
@@ -267,6 +279,7 @@ def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoc
     return  batch_losses
 
 def evalEpoch(val_pairs, craft_model, epoch):
+        print(f"starting eval epoch {epoch}")
         craft_model.eval()
         results = evaluate(val_pairs, craft_model)
         all_preds  = [ entry["prediction"] for entry in results.values() ]
@@ -274,6 +287,7 @@ def evalEpoch(val_pairs, craft_model, epoch):
         all_probs  = [ entry["probability"] for entry in results.values() ]
         val_scores = valScore(all_preds, all_labels, all_probs)
         craft_model.optimizer.epochStep(val_scores[epoch_scheduling_metric])
+        print(f"val accuracy for epoch {epoch} is:", val_scores[1])
         return {"epoch": epoch, "val_scores": val_scores}
 
 def average_across_folds(all_folds):
@@ -295,6 +309,7 @@ def average_across_folds(all_folds):
 
 """Handle loading fresh model for every fold"""
 def loadModelArtifacts():
+    print(f"Loading model artifacts...")
     #load device:
     device = loadDevice()
     #handle loading pre-trained model:
@@ -315,9 +330,8 @@ def loadModelArtifacts():
 
 """handle loading data"""
 def loadDataArtifacts():
+    print(f"Loading data artifacts...")
     #handle logic for loading data:
-    utterance_metadata = finetune_utterance_metadata 
-    conversation_metadata = finetune_convo_metadata
     loaded_corpus = loadDataset()
     #get conversations and utterances dataframe:
     convo_dataframe = loaded_corpus.get_conversations_dataframe()
@@ -325,7 +339,7 @@ def loadDataArtifacts():
     return convo_dataframe, utterance_dataframe
 
 def finetune_craft(config):
-    globals().update(config)
+    apply_config(config)
     convo_dataframe, utterance_dataframe = loadDataArtifacts()
     #create training logic:
     X_train_id, X_test_id, y_train_id, y_test_id = createTrainTestSplit(convo_dataframe)
@@ -337,13 +351,13 @@ def finetune_craft(config):
     fold_models = []
     fold_opts = []
     fold_data   = []
-    fold_batch_metrics = {f"fold_{i}": [] for i in range(k_folds+1, start =1)}  # will hold per‐batch dicts
-    fold_epoch_metrics    = {f"fold_{i}": [] for i in range(k_folds+1, start =1)}  # will hold per‐epoch dicts
-    fold_train_total_loss = {i: 0.0 for i in range(k_folds + 1, start =1)}
+    fold_batch_metrics = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐batch dicts
+    fold_epoch_metrics    = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐epoch dicts
+    fold_train_total_loss = {i: 0.0 for i in range(1, k_folds + 1)}
     #load model for each fold:
-    for fold, pair in enumerate(train_val_id_list+1, start=1):
+    for fold, pair in enumerate(train_val_id_list, start=1):
         craft_model, voc, optim = loadModelArtifacts()
-        model_dir, train_dir, results_dir, plots_dir, config_dir = build_fold_directories(fold)
+        build_fold_directories(fold)
         convo_dataframe_fold = assignSplit(convo_dataframe, train_ids=pair[0], val_ids=pair[1])
         train_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_train, split_key="train")
         val_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_val, split_key="val")
@@ -353,8 +367,8 @@ def finetune_craft(config):
 
     #train each fold per epoch to implement early stopping with avg-val-score of choice
     for epoch in range(1, finetune_epochs + 1):
-        for i in range(k_folds+1, start =1):
-            model_i, opt_i = fold_models[i], fold_opts[i]
+        for i in range(1, k_folds+1):
+            model_i= fold_models[i]
             train_pairs, val_pairs = fold_data[i]
             #create epoch iterations:
             epoch_iters = computerIterations(train_pairs)
@@ -365,13 +379,22 @@ def finetune_craft(config):
             epoch_metrics = evalEpoch(val_pairs, model_i, fold_train_total_loss[i], epoch)
             fold_epoch_metrics[f"fold_{i}"].append(batch_metrics)
             fold_batch_metrics[f"fold_{i}"].append(epoch_metrics)
-            all_folds = list(fold_epoch_metrics.values())
-            #{"epoch": epoch, "val_scores": val_scores}
-            if ray_tune:
-                mean_per_epochs = average_across_folds(all_folds)
-                tune.report(**log_fold_to_tune(epoch,fold_batch_metrics))
-                tune.report(**log_epoch_to_tune(epoch, mean_per_epochs))
+        all_folds = list(fold_epoch_metrics.values())
+        #{"epoch": epoch, "val_scores": val_scores}
+        mean_per_epochs = average_across_folds(all_folds)
+        if ray_tune:
+            tune.report(**log_fold_to_tune(epoch, fold_batch_metrics))
+            tune.report(**log_epoch_to_tune(epoch, mean_per_epochs))
+        else:
+            for fold_idx in range(1, k_folds+1):
+                log_folds(fold_idx, "training", "epoch_metrics.txt", fold_epoch_metrics[f"fold_{fold_idx}"][-1])
+                log_folds(fold_idx, "training", "batch_metrics.txt", fold_batch_metrics[f"fold_{fold_idx}"][-1])
+            log_exp("training", "avg_metrics.txt", mean_per_epochs[epoch][-1])
+        if not ray_tune:
+            log_exp("config", "config.txt", config)
         
+
+
     
 def log_fold_to_tune(epoch: int, fold_batch_metrics):
     report_dict = {}
@@ -386,12 +409,17 @@ def log_fold_to_tune(epoch: int, fold_batch_metrics):
 
 def log_epoch_to_tune(epoch: int, mean_per_epochs):
     report_dict = {}
-    mean_entry = mean_per_epochs[epoch]["mean_val_scores"]
+    mean_entry = mean_per_epochs[epoch-1]["mean_val_scores"]
     for metric_name, metric_val in mean_entry.items():
         report_dict[f"mean_val_{metric_name}"] = metric_val
-
     return report_dict
 
+def apply_config(config):
+    for key, val in config.items():
+        if hasattr(cfg_mod, key):
+            setattr(cfg_mod, key, val)
+        else:
+            continue
 
 
 

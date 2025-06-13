@@ -34,3 +34,4 @@ class OptimizerWithScheduler:
         """Call this once per validation epoch."""
         for model in self.models:
             self.scheduler.step(epoch_val_score)
+            print(f"learning rate is: {self.get_last_lr()}")

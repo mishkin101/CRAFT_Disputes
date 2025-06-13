@@ -36,14 +36,17 @@ if corpus_name == "custom":
    utt_label_metadata = None
 # Name of the directory where the ConvoKit corpus objects will be saved. 
 corpora = "corpora" 
+# Name of the fine-tuning corpus to use for fine-tuning
+finetune_corpus_name = "kodis"
 # Name of the fine-tuning dataset to use for fine-tuning
-finetune_data = "kodis"
+finetune_data = "KODIS-EN.csv"
 #Name of the pretrained model file:
 pretrained_model = "model.tar"
 # define file locations
 data_dir = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
-save_dir_pretrain = os.path.join(repo_dir, "saved_models", corpus_name, "pretrained_models", corpus_name)
-save_dir_finetune = os.path.join(repo_dir, "saved_models", corpus_name, "finetuned_models",  corpus_name)
+save_dir_pretrain = os.path.join(repo_dir, "saved_models", corpus_name, "pretrained_models")
+save_dir_finetune = os.path.join(repo_dir, "saved_models", corpus_name, "finetuned_models")
+pretrain_model_path = os.path.join(save_dir_pretrain, pretrained_model)
 
 # os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
 corpus_dir = os.path.join(data_dir, corpora) # Where to save the ConvoKit corpus object
@@ -52,10 +55,10 @@ word2index_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "word2
 index2word_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
 experiments_dir = os.path.join(repo_dir, "experiments")
 
-
 #saved directory for fine-tuning dataset:
-fine_raw_dir = os.path.join(data_dir, "finetuning_preprocessing", "raw", finetune_data) # Where to save the raw data files
-fine_processed_dir = os.path.join(data_dir, "finetuning_preprocessing", "processed", finetune_data) # Where to save the processed data files
+fine_raw_dir = os.path.join(data_dir, "finetuning_preprocessing", "raw", finetune_corpus_name) # Where to save the raw data files
+fine_processed_dir = os.path.join(data_dir, "finetuning_preprocessing", "processed", finetune_corpus_name) # Where to save the processed data files
+fine_raw_file =  os.path.join(fine_raw_dir, finetune_data)
 
 #phrases to exlude from pretraining:
 pretrain_exclude_phrases = []
@@ -103,26 +106,29 @@ forecast_thresh = .5
 #Optimizer:
 #Options: 'adam', 'sgd'
 optimizer_type = 'adam'  
+#Scheduler: ReduceLROnPlateau
+#Options:
 patience = 5
 factor = .1
 threshold = 0.0001
-mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
+mode = 'max'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 scheduling = True
 epoch_scheduling_metric = 'accuracy'
 
 #Imbalance Strategy:
 #Options: "none", "stratified", "downsampling, 
-Imbalance_handling = "none"
+imbalance_handling = "none"
 
 #Loss:
 #Options: any loss function from nn.modules.loss. See "__all__" 
 loss_function = 'BCEWithLogitsLoss'  
 pos_weight = 1
 #type of device
-device = "cuda" 
+device = "cpu" 
 
 #Number of Folds
 k_folds = 3
+#Epoch Score Functions
 #Options: any score metric name from sklearn.metrics. See "get_score_names"
 score_functions = ['accuracy', 'log_loss', 'roc_auc']
 val_size = .2
@@ -151,6 +157,23 @@ SOS_token = 1  # Start-of-sentence token
 EOS_token = 2  # End-of-sentence token
 UNK_token = 3  # Unknown word token
 
+# These are the global names you want to skip when saving.
+_CONFIG_BLACKLIST = {
+    "repo_dir",
+    "corpus_dir",
+    "train_path",
+    "word2index_path",
+    "index2word_path",
+    "experiments_dir",
+    "fine_raw_dir",
+    "fine_processed_dir",
+    "experiment_dir",
+    "PAD_token", "SOS_token", "EOS_token", "UNK_token",
+    'data_dir',
+    'save_dir_pretrain',
+    'save_dir_finetune',
+    'corpora'
+}
 
 if __name__ == "__main__":
    print(repo_dir)
