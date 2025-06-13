@@ -8,9 +8,9 @@ from ray.tune import TuneConfig
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.mlflow import MLflowLoggerCallback
 
-from runners.finetune import finetune_craft
+from utils.finetune_utils import finetune_craft
 
-from model.data import *
+from model.config import *
 
 
 
@@ -55,18 +55,14 @@ scheduler = ASHAScheduler(
     brackets=1
 )
 
-trainable_wrapped = tune.with_resources(
-    finetune_craft,
-    {"cpu": 4, "gpu": 1}
-)
-
 
 tune_config = TuneConfig(
     metric="accuracy",
     mode="max",
+    scheduler =scheduler,
     max_concurrent_trials=10,
-    num_samples=1,
-    search_alg=None
+    num_samples=2,
+    search_alg=None,
 )
 
 runConfig = RunConfig(
@@ -74,7 +70,7 @@ runConfig = RunConfig(
         storage_path="~/ray_results",
         callbacks=[
             MLflowLoggerCallback(
-                tracking_uri="file:///your/mlflow/artifact/dir",
+                tracking_uri="http://127.0.0.1:5000",
                 experiment_name="craft_experiment"
             )   
         ],
@@ -89,14 +85,14 @@ tuner = tune.Tuner(
         scheduler=scheduler,
         metric="accuracy",        # maximize validation accuracy
         mode="max",
-        num_samples=20,             # number of hyperparameter trials
+        num_samples=2,             # number of hyperparameter trials
     ),
     param_space=search_space,
 )
 
 
-results = tuner.fit()
-best = results.get_best_result(metric="mean_accuracy", mode="max")
-print("Best config:", best.config)
-print("Best mean_accuracy:", best.metrics["mean_accuracy"])
-
+if __name__ == "__main__":
+    results = tuner.fit()
+    best = results.get_best_result(metric="mean_accuracy", mode="max")
+    print("Best config:", best.config)
+    print("Best mean_accuracy:", best.metrics["mean_accuracy"])

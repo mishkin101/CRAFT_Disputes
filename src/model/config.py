@@ -108,6 +108,7 @@ factor = .1
 threshold = 0.0001
 mode = 'min'  # Mode for ReduceLROnPlateau scheduler, 'min' for minimizing loss
 scheduling = True
+epoch_scheduling_metric = 'accuracy'
 
 #Imbalance Strategy:
 #Options: "none", "stratified", "downsampling, 
@@ -123,7 +124,7 @@ device = "cuda"
 #Number of Folds
 k_folds = 3
 #Options: any score metric name from sklearn.metrics. See "get_score_names"
-score_functions = ['accuracy']
+score_functions = ['accuracy', 'log_loss', 'roc_auc']
 val_size = .2
 train_size =.6
 
