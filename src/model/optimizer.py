@@ -25,9 +25,10 @@ class OptimizerWithScheduler:
     def batchStep(self, loss):
         """Call this once per training batch."""
         for model in self.models:
+            """change this to account for the fact it is model list"""
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.optimizer.parameters(), self.clip)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
             self.optimizer.step()
 
     def epochStep(self, epoch_val_score):
