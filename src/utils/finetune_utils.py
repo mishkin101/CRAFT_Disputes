@@ -78,10 +78,9 @@ Get the corpus object from chosen directory
 If train mode: then return utterances and convo dataframe and perform context selection
 """
 def loadDataset():
+    print(f"getting data from {fine_raw_file}")
     data = DataProcesser(filepath=fine_raw_file)
     contextSelection(data)
-    conversation_metadata = finetune_convo_metadata
-    utterance_metadata = finetune_utterance_metadata
     return corpusBuilder(data)
 
 """
@@ -241,7 +240,7 @@ def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batc
     return craft_model(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels)
 
 """Make predicitons on validation set or test set from all batches"""
-def evaluate(pairs, craft_model):
+def evaluate(voc, pairs, craft_model):
     results = {}
     #invoke iterator to  all needed artifacts for tensot converstion. No need to shuffle 
     batch_iterator = batchIterator(voc, pairs, batch_size, shuffle=False)
@@ -280,10 +279,10 @@ def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoc
             print("train loss is:", loss)
     return  batch_losses
 
-def evalEpoch(val_pairs, craft_model, epoch):
+def evalEpoch(voc, val_pairs, craft_model, epoch):
         print(f"starting eval epoch {epoch}...")
         craft_model.eval()
-        results = evaluate(val_pairs, craft_model)
+        results = evaluate(voc, val_pairs, craft_model)
         all_preds  = [ entry["prediction"] for entry in results.values() ]
         all_labels = [ entry["label"]      for entry in results.values() ]
         all_probs  = [ entry["probability"] for entry in results.values() ]
@@ -382,7 +381,7 @@ def finetune_craft(config):
                 batch_metrics = trainEpoch(train_pairs, model_i, epoch_iters, voc, fold_train_total_loss[i+1], epoch)
                 #{"epoch": epoch, "val_scores": val_scores}
                 #val_scores = {"score":val, ...}
-                epoch_metrics = evalEpoch(val_pairs, model_i, fold_train_total_loss[i+1], epoch)
+                epoch_metrics = evalEpoch(voc, val_pairs, model_i, epoch)
                 fold_epoch_metrics[f"fold_{i+1}"].append(batch_metrics)
                 fold_batch_metrics[f"fold_{i+1}"].append(epoch_metrics)
             all_folds = list(fold_epoch_metrics.values())

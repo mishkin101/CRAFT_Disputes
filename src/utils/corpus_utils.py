@@ -4,12 +4,7 @@ from convokit import Corpus, Speaker, Utterance, Conversation
 from IPython.display import display
 from model.config import *
 
-utterance_headers = ["id", "speaker", "conversation_id", "reply_to", "timestamp", "text"]
-utterance_metadata = None
-speaker_headers = ['id']
-speaker_metadata = None#["b_country", "s_country", "is_AI"]
-conversation_headers = ['id']  #["id", "name", "timestamp", "num_utterances"]
-conversation_metadata = None #["num_turns", "dispute"]
+
 
 
 # intention: make dataframe object from a pre-processed dataframe with correct primary info and metadata info needed 
@@ -34,6 +29,23 @@ def setConversationMetadata(metadata):
 def setSpeakerMetadata(metadata):
     global speaker_metadata 
     speaker_metadata = metadata
+
+def addMetadataCols(data):
+    df_convo =  data.getDataframe()
+    df_utt = data.getUtterancesDF()
+     # conversation side
+    if conversation_metadata:
+        for col in conversation_metadata:
+            if col not in df_convo.columns:
+                df_convo[col] = None
+    print(utterance_metadata)
+    # utterance side
+    if utterance_metadata:
+        for col in utterance_metadata:
+            if col not in df_utt.columns:
+                df_utt[col] = None
+    data.setUtterancesDF(df_utt)
+    data.setDataframe(df_convo)
 
 def convertHeaders(df, corpus_type):
     if corpus_type.lower() == 'utterance':
@@ -87,12 +99,13 @@ def prepend_meta(df, meta_list):
 def buildUtteranceDF(df):
     df = df.copy()
     #df.drop('speaker', axis=1, inplace=True)
+    df['row_idx'] = df['row_idx'].apply(lambda x: int(float(x)))
     df[['row_idx', 'uttidx']]= df[['row_idx', 'uttidx']].astype(str)
     df['id'] = df.apply(lambda row: f"utt{row['uttidx']}_con{row['row_idx']}", axis=1)
     df['reply_to'] = setReplyTo(df)
     # df.drop('uttidx', axis=1, inplace=True)
     df['conversation_id'] = df.groupby('row_idx')['id'].transform('first')
-    df['row_idx'] = df['row_idx'].astype(int)
+    df['row_idx'] = df['row_idx'].apply(lambda x: int(float(x)))
     convo_mapping = (df.drop_duplicates('row_idx')[['row_idx','conversation_id']].set_index('row_idx')['conversation_id'])
     df = convertHeaders(df,'utterance')
     return df,  convo_mapping
@@ -156,6 +169,7 @@ def clean_corpus_timestamps(utts, speakers, convos):
     return utts, speakers, convos
 
 def corpusBuilder(data):
+    addMetadataCols(data)
     utts, convo_mapping = buildUtteranceDF(data.getUtterancesDF())
     speakers = buildSpeakerDF(data.getUtterancesDF())
     convos = buildConvoDF(data.getDataframe(), convo_mapping)
@@ -163,6 +177,8 @@ def corpusBuilder(data):
     display(utts)
     display(speakers)
     display(convos)
+    display(utterance_metadata)
+    display(conversation_metadata)
     convos = convos.set_index('id', drop=False)  # ensure 'id' is the index
     corpus_ob = Corpus.from_pandas(utterances_df=utts, speakers_df=speakers, conversations_df=convos)
     missing_in_convos = set(utts['conversation_id']) - set(convos['id'])

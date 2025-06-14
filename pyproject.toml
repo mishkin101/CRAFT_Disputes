@@ -19,6 +19,7 @@ dependencies = [
   "pandas>=2.2.3",
   "pytest>=8.3.5",
   "ray[air,tune]>=2.47.0",
+  "setuptools<81",
   "sphinx>=8.2.3",
 ]
 

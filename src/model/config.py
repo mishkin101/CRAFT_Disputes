@@ -39,7 +39,7 @@ corpora = "corpora"
 # Name of the fine-tuning corpus to use for fine-tuning
 finetune_corpus_name = "kodis"
 # Name of the fine-tuning dataset to use for fine-tuning
-finetune_data = "KODIS-EN.csv"
+finetune_data = "KODIS_test.csv"
 #Name of the pretrained model file:
 pretrained_model = "model.tar"
 # define file locations
@@ -71,14 +71,19 @@ pretrain_convo_metadata = []
 finetune_exclude_phrases = []
 finetune_case = False
 finetune_include_AI = True
-finetune_utterance_metadata = ["predictions", "scores"]
-finetune_convo_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome", "s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"]
+
 
 #context selection for train and test:
 last_only_train = True
 last_only_val = True
 last_only_test = False
 
+utterance_headers = ["id", "speaker", "conversation_id", "reply_to", "timestamp", "text"]
+utterance_metadata =  ["predictions", "scores"]
+speaker_headers = ['id']
+speaker_metadata = None#["b_country", "s_country", "is_AI"]
+conversation_headers = ['id']  #["id", "name", "timestamp", "num_utterances"]
+conversation_metadata = ["buyer_is_AI", "seller_is_AI", "convo_len", "provided_outcome", "s_SVI_instrumental", "s_SVI_self", "s_SVI_process", "s_SVI_relationship"] #["num_turns", "dispute"]
 
 # Configure model architecture parameters
 attn_model = 'general'

@@ -663,6 +663,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pytest" },
     { name = "ray", extra = ["air", "tune"] },
+    { name = "setuptools" },
     { name = "sphinx" },
 ]
 
@@ -678,6 +679,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "ray", extras = ["air", "tune"], specifier = ">=2.47.0" },
+    { name = "setuptools", specifier = "<81" },
     { name = "sphinx", specifier = ">=8.2.3" },
 ]
 
