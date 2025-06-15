@@ -1,0 +1,631 @@
+{
+  "epoch": 1,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 2,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 3,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 4,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 5,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 6,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 7,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 8,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 9,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 10,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 11,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 12,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 13,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 14,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 15,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 16,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 17,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 18,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 19,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 20,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 21,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 22,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 23,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 24,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 25,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 26,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 27,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 28,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 29,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 30,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.7017931152934006,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 1,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 2,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 3,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 4,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 5,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 6,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 7,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 8,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 9,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 10,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 11,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 12,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 13,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 14,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 15,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 16,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 17,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 18,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 19,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 20,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 21,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 22,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 23,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 24,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 25,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 26,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 27,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 28,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 29,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 30,
+  "val_scores": {
+    "accuracy": 0.14285714285714285,
+    "neg_log_loss": 0.6946067018217305,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 1,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 2,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 3,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 4,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 5,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 6,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 7,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 8,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 9,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 10,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 11,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 12,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 13,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 14,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 15,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 16,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 17,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 18,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 19,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 20,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 21,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 22,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 23,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 24,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 25,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 26,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 27,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 28,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 29,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}{
+  "epoch": 30,
+  "val_scores": {
+    "accuracy": 0.8571428571428571,
+    "neg_log_loss": 0.6790225685112932,
+    "roc_auc": 1.0
+  }
+}

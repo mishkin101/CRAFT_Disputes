@@ -38,4 +38,4 @@ class OptimizerWithScheduler:
         """Call this once per validation epoch."""
         if self.scheduler is not None:
             self.scheduler.step(epoch_val_score)
-            print(f"learning rate is: {self.get_last_lr()}")
+            print(f"learning rate is: {self.scheduler.get_last_lr()}")

@@ -56,12 +56,13 @@ def build_fold_directories(fold_idx):
 def log_folds(fold_idx, foldername, filename, data_dict):
         fold_name = f"fold_{fold_idx}"
         fold_dir = os.path.join(experiments_dir, experiment_name, fold_name, foldername, filename)
-        with open(fold_dir, "w+") as f:
+        with open(fold_dir, "a") as f:
             json.dump(data_dict, f, indent=2)
      
 def log_exp(foldername, filename, data_dict):
     cur_dir = os.path.join(experiment_dir, foldername, filename)
-    with open(cur_dir, "w+") as f:
+    os.makedirs(os.path.dirname(cur_dir), exist_ok=True)
+    with open(cur_dir, "a") as f:
         json.dump(data_dict, f, indent=2)
 
 

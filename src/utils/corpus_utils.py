@@ -97,6 +97,8 @@ def prepend_meta(df, meta_list):
     return df
     
 def buildUtteranceDF(df):
+    df['row_idx'] = df['row_idx'].apply(lambda x: int(float(x)))
+    df['uttidx'] = df['row_idx'].apply(lambda x: int(float(x)))
     df = df.copy()
     #df.drop('speaker', axis=1, inplace=True)
     df['row_idx'] = df['row_idx'].apply(lambda x: int(float(x)))
@@ -177,8 +179,8 @@ def corpusBuilder(data):
     display(utts)
     display(speakers)
     display(convos)
-    display(utterance_metadata)
-    display(conversation_metadata)
+    print(f"conversation metadata: {utterance_metadata}")
+    print(f"utterance metadata: {conversation_metadata}")
     convos = convos.set_index('id', drop=False)  # ensure 'id' is the index
     corpus_ob = Corpus.from_pandas(utterances_df=utts, speakers_df=speakers, conversations_df=convos)
     missing_in_convos = set(utts['conversation_id']) - set(convos['id'])

@@ -219,7 +219,7 @@ def valScore(preds, labels, probs):
     # Metrics that require probability inputs
     prob_based = {"neg_brier_score", "neg_log_loss", "roc_auc", "average_precision"}
     for score_fn in score_functions:
-        scorer_obj = get_scorer(score_functions)
+        scorer_obj = get_scorer(score_fn)
         metric_fn   = scorer_obj._score_func
         if score_fn in prob_based:
             results[score_fn] = metric_fn(labels, probs)
@@ -228,13 +228,13 @@ def valScore(preds, labels, probs):
     return results
 
 """return scores from predictor"""
-def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices):
+def evaluateBatch(craft_model, input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels):
     print(f"Loaded eval tensors to device")
     toDevice([input_batch, dialog_lengths, utt_lengths])
-    return craft_model(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, None)
+    return craft_model(input_batch, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels)
 
 """return loss from CRAFT pipeline and update optimzer steps, gradients"""
-def train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model):
+def train(craft_model,input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels):
     print(f"Loaded train tensors to device")                                                                                          # optimization arguments): 
     toDevice([input_variable, dialog_lengths, utt_lengths, labels])
     return craft_model(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, batch_size, labels)
@@ -247,10 +247,10 @@ def evaluate(voc, pairs, craft_model):
     n_iters = len(pairs) // batch_size + int(len(pairs) % batch_size > 0)
     with torch.no_grad():
         for iteration in range(1, n_iters+1):
-            batch, batch_dialogs, *_ = next(batch_iterator)
+            batch, batch_dialogs, batch_labels, true_batch_size = next(batch_iterator)
             input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, id_batch,*_ = batch
             dialog_lengths_list = [len(x) for x in batch_dialogs]
-            scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices)
+            scores = evaluateBatch(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, true_batch_size, batch_labels)
             predictions = classificationThreshold(scores)
         for i, comment_id in enumerate(id_batch):
                 results[comment_id] = {
@@ -272,11 +272,12 @@ def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoc
         training_batch, training_dialogs, _, true_batch_size = next(batch_iterator)
         input_variable, dialog_lengths, utt_lengths, batch_indices, dialog_indices, labels, *_ = training_batch
         dialog_lengths_list = [len(x) for x in training_dialogs]
-        loss = train(input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, labels, craft_model)
+        loss = train(craft_model, input_variable, dialog_lengths, dialog_lengths_list, utt_lengths, batch_indices, dialog_indices, true_batch_size, labels)
         total_loss += loss
         if iteration % print_every == 0:
             batch_losses.append({"epoch": epoch, "iteration": (epoch-1)*epoch_iterations + iteration +1,"loss": loss})
             print("train loss is:", loss)
+    print(f"finished training with total loss: {total_loss}")
     return  batch_losses
 
 def evalEpoch(voc, val_pairs, craft_model, epoch):
@@ -288,17 +289,17 @@ def evalEpoch(voc, val_pairs, craft_model, epoch):
         all_probs  = [ entry["probability"] for entry in results.values() ]
         val_scores = valScore(all_preds, all_labels, all_probs)
         craft_model.optimizer.epochStep(val_scores[epoch_scheduling_metric])
-        print(f"val accuracy for epoch {epoch} is:", val_scores[1])
+        print(f"finished eval for epoch {epoch} with val accuracy:", val_scores["accuracy"])
         return {"epoch": epoch, "val_scores": val_scores}
 
 def average_across_folds(all_folds):
     n_folds = len(all_folds)
     n_epochs = len(all_folds[0]) 
     mean_per_epoch = []
-    for epoch in range(n_epochs):
+    for epoch in range(1, n_epochs+1):
         sums = defaultdict(float)
         for fold in all_folds:
-            scores = fold[epoch]["val_scores"]
+            scores = fold[epoch-1]["val_scores"]
             for metric, value in scores.items():
                 sums[metric] += value
         means = {metric: sums[metric] / n_folds for metric in sums}
@@ -372,7 +373,7 @@ def finetune_craft(config):
         """Can maybe parallelize this to have all folds running one epoch at same time """
         #train each fold per epoch to implement early stopping with avg-val-score of choice
         for epoch in range(1, finetune_epochs + 1):
-            for i in range( k_folds):
+            for i in range(k_folds):
                 model_i= fold_models[i]
                 train_pairs, val_pairs = fold_data[i]
                 #create epoch iterations:
@@ -382,11 +383,13 @@ def finetune_craft(config):
                 #{"epoch": epoch, "val_scores": val_scores}
                 #val_scores = {"score":val, ...}
                 epoch_metrics = evalEpoch(voc, val_pairs, model_i, epoch)
-                fold_epoch_metrics[f"fold_{i+1}"].append(batch_metrics)
-                fold_batch_metrics[f"fold_{i+1}"].append(epoch_metrics)
+                fold_batch_metrics[f"fold_{i+1}"].append(batch_metrics)
+                fold_epoch_metrics[f"fold_{i+1}"].append(epoch_metrics)
             all_folds = list(fold_epoch_metrics.values())
             #{"epoch": epoch, "val_scores": val_scores}
+            print(f"all_folds: \n {all_folds}")
             mean_per_epochs = average_across_folds(all_folds)
+            print(f"mean_all_folds: \n {mean_per_epochs}")
             if ray_tune:
                 tune.report(**log_fold_to_tune(epoch, fold_batch_metrics))
                 tune.report(**log_epoch_to_tune(epoch, mean_per_epochs))
@@ -395,7 +398,7 @@ def finetune_craft(config):
                 for fold_idx in range(1, k_folds+1):
                     log_folds(fold_idx, "training", "epoch_metrics.txt", fold_epoch_metrics[f"fold_{fold_idx}"][-1])
                     log_folds(fold_idx, "training", "batch_metrics.txt", fold_batch_metrics[f"fold_{fold_idx}"][-1])
-                log_exp("training", "avg_metrics.txt", mean_per_epochs[epoch][-1])
+                log_exp("training", "avg_metrics.txt", mean_per_epochs[-1])
             if not ray_tune:
                 log_exp("config", "config.txt", config)
     # except Exception as e:

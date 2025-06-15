@@ -135,7 +135,7 @@ device = "cpu"
 k_folds = 3
 #Epoch Score Functions
 #Options: any score metric name from sklearn.metrics. See "get_score_names"
-score_functions = ['accuracy', 'log_loss', 'roc_auc']
+score_functions = ['accuracy', 'neg_log_loss', 'roc_auc']
 val_size = .2
 train_size =.6
 
