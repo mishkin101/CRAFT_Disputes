@@ -6,6 +6,7 @@ import sys
 import json
 from types import ModuleType
 import torch
+from model.config import *
 
 """Handle logic for saving training metrics"""
 def save_experiment_results_train_batch(out_dir, train_dict):
@@ -40,6 +41,7 @@ def save_experiment_model(craft_model):
       
 """Handle logic for creating fold experiment results"""
 def build_fold_directories(fold_idx):
+        print(f"experiment name is: {experiment_name}")
         fold_name = f"fold_{fold_idx}"
         fold_dir = os.path.join(experiments_dir, experiment_name, fold_name)
         os.makedirs(fold_dir, exist_ok=True)
@@ -60,6 +62,7 @@ def log_folds(fold_idx, foldername, filename, data_dict):
             json.dump(data_dict, f, indent=2)
      
 def log_exp(foldername, filename, data_dict):
+    print(f"experiment name is: {experiment_name}")
     cur_dir = os.path.join(experiment_dir, foldername, filename)
     os.makedirs(os.path.dirname(cur_dir), exist_ok=True)
     with open(cur_dir, "a") as f:

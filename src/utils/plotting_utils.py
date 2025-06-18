@@ -476,4 +476,4 @@ def plot_fold_summary_with_ai(
               bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0.)
 
     plt.tight_layout()
-    plt.show()
+    return fig, axes
