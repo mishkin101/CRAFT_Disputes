@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 
 class DataProcesser:
 
-    def __init__(self, filepath,  label = False,drop_AI= False):
+    def __init__(self, filepath,  label = False, drop_AI= False):
         self.num_matches = {}
         self.metric_keys = ['timestamp', 'speaker', 'message', 'value', 'Case Match Type', 'matchidx', 'convolen', 'uttidx', 'matchfreq', 'speaker_id']
         self.match_stats = {'relative_pos'}
@@ -281,7 +281,6 @@ class DataProcesser:
     """CSV Utilities"""
     def saveToCSV(self, final_filepath, drop_parsed = False):
         os.makedirs(os.path.dirname(final_filepath), exist_ok=True)
-
         if drop_parsed:
             self.df.drop(columns=['parsed_dialog'], inplace =True)
         self.getDataframe().to_csv(final_filepath, index= True, index_label="Row_Index")
@@ -294,11 +293,11 @@ class DataProcesser:
                 self.df.set_index("Row_Index", inplace=True)  # Set it as the index
         else:
             self.df = pd.read_csv(filepath)
+
         if "parsed_dialog" not in self.df.columns:
             self.addParsedDialogue("formattedChat")
         else:
             self.df["parsed_dialog"] = self.df["parsed_dialog"].apply(ast.literal_eval)
-
             self.parsedtoUtteranceDF()
 
 
@@ -422,6 +421,11 @@ class DataProcesser:
         
         case_in / case_ex control case-sensitivity for string matching.
         """
+        if isinstance(include_val, (list,tuple)) and len(include_val) == 0:
+            include_val = None
+        if isinstance(exclude_val, (list,tuple)) and len(exclude_val) == 0:
+            exclude_val = None
+
         if column not in self.utterancesDF.columns:
             filtered_df = self.df.copy()
         else:
@@ -464,21 +468,30 @@ class DataProcesser:
                 if isinstance(dlg, list) and len(dlg) > 0:
                     last = dlg[-1]
                     last_text = last.get("message", "") if isinstance(last, dict) else str(last)
-                    if "Accept Deal" in text or "I Walk Away" in last_text:
+                    if "Accept Deal" in last_text or "I Walk Away" in last_text:
                           return dlg[:-1]
                     return dlg
             df["parsed_dialog"] = df["parsed_dialog"].apply(strip_last)
-        
             display(df)
         df['parsed_dialog'] = (
-            df['parsed_dialog']
-            .apply(lambda dlg: [utt for utt in dlg
-                                if phrase_to_match not in utt.get('text','')])
-        )
+            df['parsed_dialog'].apply(lambda dlg: [utt for utt in dlg if phrase_to_match not in utt.get('text','')]))
 
         self.setUtterancesDF()
    
-   
+    def contextSelection(self, filter_map_convo=None, filter_map_utt= None):
+        if filter_map_convo is not None:
+            for col_name, conditions in filter_map_convo.items():
+                    filtered_df = self.filterRows(col_name, include_val= conditions["include"][0], case_in = conditions["include"][1],
+                                                exclude_val= conditions["exclude"][0], case_ex = conditions["exclude"][1])
+                    self.setDataframe(filtered_df)
+
+        if filter_map_utt is not None:
+            filter_map_utt["row_idx"] = {"include":[self.getDataframe().index.tolist(), None], "exclude":[[], None ]}     
+            for col_name, conditions in filter_map_utt.items():
+                    filtered_df = self.filterRows(col_name, include_val= conditions["include"][0], case_in = conditions["include"][1],
+                                                exclude_val= conditions["exclude"][0], case_ex = conditions["exclude"][1])
+                    self.setUtterancesDF(filtered_df)
+
     """Dataframe Utilities"""
     def setUtterancesDF(self, utterancesDF):
         self.utterancesDF = utterancesDF
@@ -495,7 +508,7 @@ class DataProcesser:
     def dropChatNA(self):
         n_missing_chat = self.df['formattedChat'].isna().sum()
         print(f"Dropping {n_missing_chat} rows with missing formattedChat")
-        self.df = self.df.dropna(subset=["formattedChat"]).reset_index(drop=True)
+        self.df = self.df.dropna(subset=["formattedChat"])
 
     def getSpeakerFromCol(self, col_name, row_idx):
         if col_name.lower().startswith("b"):

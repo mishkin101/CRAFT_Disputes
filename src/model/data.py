@@ -284,6 +284,7 @@ def createTrainTestSplit(convo_df):
 
 """Only do train/val splits on training set"""
 def createTrainValSplit(convo_df_train):
+    print(f"imbalance handling is:{imbalance_handling}")
     convo_ids    = np.array(convo_df_train.index.tolist())
     convo_labels = convo_df_train[f"meta.{label_metadata}"].astype(int).values
     folds = []

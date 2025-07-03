@@ -1,12 +1,14 @@
 import os
+import ray
 import ray.tune as tune
 from ray.tune import CLIReporter
-from ray.air.config import RunConfig
+from ray.tune import RunConfig
 from ray.tune import TuneConfig
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.mlflow import MLflowLoggerCallback
 from types import ModuleType
-from utils.finetune_utils import finetune_craft
+import utils.finetune_utils as finetune_utils
+
 import model.config as cfg_mod
 
 
@@ -37,49 +39,70 @@ search_space = {
   "finetune_epochs":  tune.grid_search([10,20,30])
   # you can sweep any other things from DEFAULT_CONFIG in the same way…
 }
+
+search_space_test = {
+    **get_config_dict(),
+    # trivial sweep: only one choice each
+    "dropout": tune.grid_search([0.1]),
+    "batch_size": tune.choice([8]),
+    "clip": tune.choice([1.0]),
+    "learning_rate": tune.choice([1e-3]),
+    "finetune_epochs": tune.grid_search([1]),
+}
+
 max_iter = search_space["finetune_epochs"]['grid_search'][-1]
 scheduler = ASHAScheduler(
     max_t= max_iter,     # the “T” in ASHA is your number of epochs
     grace_period=5,            # minimum epochs before stopping a bad trial
     reduction_factor=2,        # how aggressively to stop
     brackets=1,
-    metric = "mean_val_accuracy",
+    metric = "mean_val_f1_micro",
     mode ="max"
 )
 
 
 tune_config = TuneConfig(
-    metric= "mean_val_accuracy",
-    mode="max",
-    scheduler =scheduler,
+    # metric= "mean_val_f1_score",
+    # mode="max",
+    scheduler = scheduler,
     max_concurrent_trials=10,
-    num_samples=2,
+    num_samples=1,
     search_alg=None,
 )
 
 runConfig = RunConfig(
         name="craft_hpo",
-        storage_path="~/ray_results",
+        storage_path="/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/ray_results",
         callbacks=[
             MLflowLoggerCallback(
-                tracking_uri="http://127.0.0.1:5000",
-                experiment_name="craft_experiment"
+                tracking_uri="http://0.0.0.0:8080",
+                experiment_name="craft_experiment_raytune_test"
             )   
         ],
     )
 
+raw_file = "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src/data/finetuning_preprocessing/raw/kodis/KODIS-EN.csv"
+model_fil= "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src/data/finetuning_preprocessing/raw/kodis/craft_model.tar.gz"
+data_list = [raw_file, model_file]
 tuner = tune.Tuner(
-    tune.with_resources(
-        finetune_craft,
-        resources={"cpu": 4, "gpu": 1},
+    tune.with_resources(tune.with_parameters(
+        finetune_utils.finetune_craft_test, data= data_list),
+        resources={"cpu": 2, "gpu": 0},
     ),
     tune_config=tune_config,
-    param_space=search_space,
+    param_space=search_space_test,
+    run_config=runConfig
 )
 
 
 if __name__ == "__main__":
+    ray.init(
+    runtime_env={
+      "working_dir": "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src", 
+      "excludes": [".git", ".git/*", "src/experiments/*", "mlruns/*", "ray_results/*"]
+        }
+    )
     results = tuner.fit()
-    best = results.get_best_result(metric="mean_accuracy", mode="max")
+    best = results.get_best_result(metric="mean_val_f1_micro", mode="max")
     print("Best config:", best.config)
-    print("Best mean_accuracy:", best.metrics["mean_accuracy"])
+    print("Best mean_accuracy:", best.metrics["mean_val_accuracy"])

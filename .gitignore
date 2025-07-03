@@ -16,3 +16,11 @@ deal_no_deal
 kodis
 train_processed_dialogs.txt
 .vscode
+ray_results
+mlruns
+test_1fold_ALL_KODIS_stratified
+test_3fold_ALL_KODIS_stratified
+test_3fold_ALL_KODIS_downsampling
+test_500_1fold
+test_500_1fold_ALL_KODIS
+test_500_3fold

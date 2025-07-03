@@ -25,6 +25,8 @@ if corpus_name == "cmv":
 if corpus_name == "custom":
    label_metadata = "provided_outcome"
 
+label_map = {0:"success", 1:"impasse"}
+
 # Name of the utterance metadata field that contains comment-level toxicity labels, if any. Note
 # that CRAFT does not strictly need such labels, but some datasets like the wikiconv data do include
 # it. For custom datasets it is fine to leave this as None.
@@ -39,7 +41,7 @@ corpora = "corpora"
 # Name of the fine-tuning corpus to use for fine-tuning
 finetune_corpus_name = "kodis"
 # Name of the fine-tuning dataset to use for fine-tuning
-finetune_data = "KODIS_test.csv"
+finetune_data = "KODIS-EN.csv"
 #Name of the pretrained model file:
 pretrained_model = "model.tar"
 # define file locations
@@ -55,22 +57,37 @@ word2index_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "word2
 index2word_path = os.path.join(data_dir, "nn_preprocessing", corpus_name, "index2word.json") # model's vocabulary 
 experiments_dir = os.path.join(repo_dir, "experiments")
 
-#saved directory for fine-tuning dataset:
+#saved directory for fine-tuning dataset:µ
+fine_dir = os.path.join(data_dir,"finetuning_preprocessing")
 fine_raw_dir = os.path.join(data_dir, "finetuning_preprocessing", "raw", finetune_corpus_name) # Where to save the raw data files
 fine_processed_dir = os.path.join(data_dir, "finetuning_preprocessing", "processed", finetune_corpus_name) # Where to save the processed data files
 fine_raw_file =  os.path.join(fine_raw_dir, finetune_data)
 
-#phrases to exlude from pretraining:
-pretrain_exclude_phrases = []
-pretrain_case = False
+#set processed file on each  finetune run
+fine_processed_filename = "change_to_custom.csv"
+fine_processed_file = os.path.join(fine_processed_dir, fine_processed_filename)
+
+#metadata pretraining:
 pretrain_include_AI = True
 pretrain_utterance_metadata = []
 pretrain_convo_metadata = []
 
-# phrases to exlude from fine-tuning:
-finetune_exclude_phrases = []
-finetune_case = False
-finetune_include_AI = True
+#values to to exlude from fine-tuning:
+#select custom conversation and utterance cols and corrsponding values with case if applicable.
+#col, [values, case, include/exclude]
+
+finetune_conversation_map = {
+   'buyer_is_AI': {"include": [[False], None], "exclude": [[], None]},
+   'seller_is_AI':{"include": [[False], None], "exclude": [[], None]}
+}
+
+finetune_utterance_map = {
+   'message': {"include": [[], False], "exclude": [[], True]},
+   'speaker_id': {"include": [[], None], "exclude": [[], None]},
+   'is_AI':  {"include": [[], None], "exclude": [[], None]},
+}
+
+finetune_include_AI = False
 
 
 #context selection for train and test:
@@ -135,12 +152,12 @@ device = "cpu"
 k_folds = 3
 #Epoch Score Functions
 #Options: any score metric name from sklearn.metrics. See "get_score_names"
-score_functions = ['accuracy', 'neg_log_loss', 'roc_auc']
+score_functions = ['accuracy', 'neg_log_loss', 'roc_auc', 'f1_micro', 'f1_macro']
 val_size = .2
 train_size =.6
 
 #Classifier type:
-#Options: "sigle-target"
+#Options: "single-target"
 classifier_type = 'single_target'
 activation = "sigmoid"
 
@@ -164,20 +181,20 @@ UNK_token = 3  # Unknown word token
 
 # These are the global names you want to skip when saving.
 _CONFIG_BLACKLIST = {
-    "repo_dir",
-    "corpus_dir",
-    "train_path",
-    "word2index_path",
-    "index2word_path",
-    "experiments_dir",
-    "fine_raw_dir",
-    "fine_processed_dir",
-    "experiment_dir",
-    "PAD_token", "SOS_token", "EOS_token", "UNK_token",
-    'data_dir',
-    'save_dir_pretrain',
-    'save_dir_finetune',
-    'corpora'
+   #  "repo_dir",
+   #  "corpus_dir",
+   #  "train_path",
+   #  "word2index_path",
+   #  "index2word_path",
+   #  "experiments_dir",
+   #  "fine_raw_dir",
+   #  "fine_processed_dir",
+   #  "experiment_dir",
+   #  "PAD_token", "SOS_token", "EOS_token", "UNK_token",
+   #  'data_dir',
+   #  'save_dir_pretrain',
+   #  'save_dir_finetune',
+   #  'corpora'
 }
 
 if __name__ == "__main__":

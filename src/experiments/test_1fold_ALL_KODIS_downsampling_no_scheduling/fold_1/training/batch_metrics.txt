@@ -1,0 +1,166 @@
+[
+  {
+    "epoch": 1,
+    "iteration": 1,
+    "loss": 0.6943373680114746
+  },
+  {
+    "epoch": 1,
+    "iteration": 11,
+    "loss": 0.6295130252838135
+  }
+][
+  {
+    "epoch": 2,
+    "iteration": 16,
+    "loss": 0.5146925449371338
+  },
+  {
+    "epoch": 2,
+    "iteration": 26,
+    "loss": 0.3817955255508423
+  }
+][
+  {
+    "epoch": 3,
+    "iteration": 31,
+    "loss": 0.27859288454055786
+  },
+  {
+    "epoch": 3,
+    "iteration": 41,
+    "loss": 0.2956996560096741
+  }
+][
+  {
+    "epoch": 4,
+    "iteration": 46,
+    "loss": 0.23158688843250275
+  },
+  {
+    "epoch": 4,
+    "iteration": 56,
+    "loss": 0.35331079363822937
+  }
+][
+  {
+    "epoch": 5,
+    "iteration": 61,
+    "loss": 0.2320578396320343
+  },
+  {
+    "epoch": 5,
+    "iteration": 71,
+    "loss": 0.17578162252902985
+  }
+][
+  {
+    "epoch": 6,
+    "iteration": 76,
+    "loss": 0.23789694905281067
+  },
+  {
+    "epoch": 6,
+    "iteration": 86,
+    "loss": 0.2990397810935974
+  }
+][
+  {
+    "epoch": 7,
+    "iteration": 91,
+    "loss": 0.2436736822128296
+  },
+  {
+    "epoch": 7,
+    "iteration": 101,
+    "loss": 0.22346606850624084
+  }
+][
+  {
+    "epoch": 1,
+    "iteration": 1,
+    "loss": 0.6893153190612793
+  },
+  {
+    "epoch": 1,
+    "iteration": 11,
+    "loss": 0.5596424341201782
+  }
+][
+  {
+    "epoch": 1,
+    "iteration": 1,
+    "loss": 0.6911087036132812
+  },
+  {
+    "epoch": 1,
+    "iteration": 11,
+    "loss": 0.6151565909385681
+  }
+][
+  {
+    "epoch": 2,
+    "iteration": 16,
+    "loss": 0.5634523630142212
+  },
+  {
+    "epoch": 2,
+    "iteration": 26,
+    "loss": 0.39562714099884033
+  }
+][
+  {
+    "epoch": 3,
+    "iteration": 31,
+    "loss": 0.5271711349487305
+  },
+  {
+    "epoch": 3,
+    "iteration": 41,
+    "loss": 0.40915238857269287
+  }
+][
+  {
+    "epoch": 4,
+    "iteration": 46,
+    "loss": 0.34549543261528015
+  },
+  {
+    "epoch": 4,
+    "iteration": 56,
+    "loss": 0.3488492965698242
+  }
+][
+  {
+    "epoch": 5,
+    "iteration": 61,
+    "loss": 0.2838413119316101
+  },
+  {
+    "epoch": 5,
+    "iteration": 71,
+    "loss": 0.2370639443397522
+  }
+][
+  {
+    "epoch": 6,
+    "iteration": 76,
+    "loss": 0.2015542834997177
+  },
+  {
+    "epoch": 6,
+    "iteration": 86,
+    "loss": 0.2297413945198059
+  }
+][
+  {
+    "epoch": 7,
+    "iteration": 91,
+    "loss": 0.2708126902580261
+  },
+  {
+    "epoch": 7,
+    "iteration": 101,
+    "loss": 0.21876677870750427
+  }
+]

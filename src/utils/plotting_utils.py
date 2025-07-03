@@ -477,3 +477,30 @@ def plot_fold_summary_with_ai(
 
     plt.tight_layout()
     return fig, axes
+
+
+
+
+def plot_batch_distributions(batch_counts, fold_name, epoch, label_map):
+    max_label = max(label_map)
+    num_classes = max_label + 1
+
+    padded = np.stack([
+        np.pad(arr, (0, num_classes - arr.shape[0]), mode="constant")
+        for arr in batch_counts
+    ], axis=0)
+    props = padded / padded.sum(axis=1, keepdims=True)
+
+    # plot
+    fig, ax = plt.subplots(figsize=(10,6))
+    x = np.arange(1, props.shape[0] + 1)
+    for label_id, name in label_map.items():
+        ax.plot(x, props[:, label_id], label=name)
+
+    ax.set_xlabel("Batch #")
+    ax.set_ylabel("Proportion")
+    ax.set_title(f"{fold_name} — Epoch {epoch} label proportions")
+    ax.legend(loc="upper right", ncol=2)
+    ax.grid(True)
+    plt.tight_layout()
+    return fig

@@ -12,15 +12,14 @@ dependencies = [
   "bitsandbytes==0.42.0",
   "convokit[craft]>=3.1.0",
   "emoji>=1.7.0",
-  "ipykernel>=6.29.5",
   "ipywidgets>=8.1.7",
   "mlflow>=2.22.0",
   "optuna>=4.3.0",
   "pandas>=2.2.3",
   "pytest>=8.3.5",
   "ray[air,tune]>=2.47.0",
-  "setuptools<81",
   "sphinx>=8.2.3",
+  "ipykernel>=6.29.5",
 ]
 
 [tool.uv]
@@ -28,12 +27,12 @@ package = true
 
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["model", "model.*", "utils", "utils.*"]
-exclude = ["nn_input_data*", "nn_preprocessing*"]
+include = ["model", "utils", "runners"]
+exclude = ["nn_input_data*", "nn_preprocessing*", "finetuning_preprocessing*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -41,7 +40,7 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 99
 src = ["src"]
-include = ["pyproject.toml", "src/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", ]
 
 [tool.ruff.lint]
 extend-select = ["I"]  # Add import sorting
@@ -49,3 +48,4 @@ extend-select = ["I"]  # Add import sorting
 [tool.ruff.lint.isort]
 known-first-party = ["model", "utils"]
 force-sort-within-sections = true
+

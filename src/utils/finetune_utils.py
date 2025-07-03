@@ -10,6 +10,7 @@ import mlflow
 
 
 
+
 # import all configuration variables
 from model.config import *
 import model.config as cfg_mod
@@ -80,19 +81,34 @@ class CraftPipeline(nn.Module):
 Get the corpus object from chosen directory
 If train mode: then return utterances and convo dataframe and perform context selection
 """
-def loadDataset():
+def loadDataset(data=None):
+    if data:
+        fine_raw_file = data[0]
     print(f"getting data from {fine_raw_file}")
+    print(f"dropping conversation values: {finetune_conversation_map}")
+    print(f"dropping utterance values: {finetune_utterance_map}")
+    print(f"including AI?: {finetune_include_AI}")
     data = DataProcesser(filepath=fine_raw_file)
-    contextSelection(data)
+    data.contextSelection(finetune_conversation_map, finetune_utterance_map)
+    exp_processed_file = os.path.join(experiment_dir, fine_processed_filename)
+    data.saveToCSV(exp_processed_file, drop_parsed=True)
+    print("displaying processes dataframes:")
+    display(data.getDataframe())
+    print("displaying utterance dataframe:")
+    display(data.getUtterancesDF())
     return corpusBuilder(data)
 
-"""
-Which utterance to exlcude as context from meta.text
-use functions defined in dataprocessor.py to create necessary dataframes
-"""
-def contextSelection(data: Type[DataProcesser]):
-    filtered_df = data.filterRows("message", exclude_val= finetune_exclude_phrases, case_ex = finetune_case)
-    data.setUtterancesDF(filtered_df)
+# def saveDataset(data):
+#     save_loc = os.path.join(fine_processed_dir, fine_processed_file)
+#     print(f"saving processed corpus to:")
+
+# """
+# Which utterance to exlcude as context from meta.text
+# use functions defined in dataprocessor.py to create necessary dataframes
+# """
+# def contextSelection(data: Type[DataProcesser]):
+#     filtered_df = data.filterRows("message", exclude_val= finetune_exclude_phrases, case_ex = finetune_case)
+#     data.setUtterancesDF(filtered_df)
 
 """Load Device"""
 def loadDevice():
@@ -102,7 +118,9 @@ def loadDevice():
         return torch.device('cpu')
 
 """Load Pretrained Model checkpoint"""
-def loadPretrainedModel():
+def loadPretrainedModel(data=None):
+    if data:
+        pretrain_model_path = data[1]
     if not os.path.exists(pretrain_model_path):
         raise FileNotFoundError(f"Model file not found at {pretrain_model_path}")
     if device == 'cuda':
@@ -110,6 +128,7 @@ def loadPretrainedModel():
         checkpoint = torch.load(pretrain_model_path)
     else:
         print("Loading model on CPU")
+        print(f"loading pretrained model from {pretrain_model_path}")
         checkpoint = torch.load(pretrain_model_path, map_location=torch.device('cpu'))
     return checkpoint
 
@@ -124,6 +143,7 @@ def setClassifierHead():
 """Build Contect encoder, decoder, and classifier"""
 def loadCheckpoint(checkpoint):
     # Instantiate your modules
+    print(f"Loading vocab from {word2index_path}")
     voc             = loadPrecomputedVoc(corpus_name, word2index_path, index2word_path)
     attack_clf      = setClassifierHead()
     embedding       = nn.Embedding(voc.num_words, hidden_size)
@@ -247,7 +267,7 @@ def train(craft_model,input_variable, dialog_lengths, dialog_lengths_list, utt_l
 """Make predicitons on validation set or test set from all batches"""
 def evaluate(voc, pairs, craft_model):
     results = {}
-    #invoke iterator to  all needed artifacts for tensot converstion. No need to shuffle 
+    #invoke iterator to  all needed artifacts for tensor conversion. No need to shuffle 
     batch_iterator = batchIterator(voc, pairs, batch_size, shuffle=False)
     n_iters = len(pairs) // batch_size + int(len(pairs) % batch_size > 0)
     with torch.no_grad():
@@ -271,6 +291,7 @@ def evaluate(voc, pairs, craft_model):
 def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoch):
     print(f"starting training epoch {epoch}...")
     batch_losses = []
+    label_counts = []
     # print_every = max(1, epoch_iterations // 10)
     batch_iterator = batchIterator(voc, train_pairs, batch_size)
     craft_model.train()
@@ -285,8 +306,11 @@ def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoc
         if iteration % print_every == 0:
             batch_losses.append({"epoch": epoch, "iteration": (epoch-1)*epoch_iterations + iteration +1,"loss": loss})
             print("train loss is:", loss)
+        flat = labels.view(-1).long()
+        counts = torch.bincount(flat).cpu().numpy()
+        label_counts.append(counts)
     print(f"finished training with total loss: {total_loss}")
-    return  batch_losses
+    return batch_losses, label_counts
 
 def evalEpoch(voc, val_pairs, craft_model, epoch):
         print(f"starting eval epoch {epoch}...")
@@ -351,7 +375,7 @@ def loadDataArtifacts():
 
 def finetune_craft(config):
     # try:
-        """=== MLFLOW= =="""
+        """=== MLFLOW ==="""
         mlflow.set_tracking_uri("http://127.0.0.1:8080")        # HTTP server URI :contentReference[oaicite:2]{index=2}
         mlflow.set_experiment(config['experiment_name']) 
         with mlflow.start_run():
@@ -366,13 +390,13 @@ def finetune_craft(config):
             #same splits for each k-fold index
             train_val_id_list = createTrainValSplit(X_train)
             fold_models = []
-            fold_dataframes= []
+            fold_dataframes = []
             fold_opts = []
-            fold_data   = []
+            fold_data = []
             fold_batch_metrics = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐batch dicts
             fold_epoch_metrics    = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐epoch dicts
             fold_train_total_loss = {i: 0.0 for i in range(1, k_folds + 1)}
-            #load model for each fold:
+            # load model for each fold:
             for fold, pair in enumerate(train_val_id_list, start=1):
                 print(f"=== Loading fold artifacts for fold {fold} ===")
                 craft_model, voc, optim = loadModelArtifacts()
@@ -386,6 +410,7 @@ def finetune_craft(config):
                 fold_opts.append(optim)
                 fold_data.append((train_pairs, val_pairs))
                 fold_dataframes.append(convo_dataframe_fold)
+
             """=== TESTING PLOTTING ==="""
             fig,_ = plot_fold_summary_with_ai(
                 fold_dataframes,
@@ -395,16 +420,19 @@ def finetune_craft(config):
                 preferred_splits=("train","val")
             )
             mlflow.log_figure(fig, "fold_summary.png")
+            plt.close(fig)
+
             """Can maybe parallelize this to have all folds running one epoch at same time """
-            #train each fold per epoch to implement early stopping with avg-val-score of choice
+            # train each fold per epoch to implement early stopping with avg-val-score of choice
             for epoch in range(1, finetune_epochs + 1):
                 for i in range(k_folds):
-                    model_i= fold_models[i]
+                    model_i = fold_models[i]
                     train_pairs, val_pairs = fold_data[i]
                     #create epoch iterations:
                     epoch_iters = computerIterations(train_pairs)
                     #{"batch_losses": {"epoch": epoch, "iteration": iteration,"loss": loss}}
-                    batch_metrics = trainEpoch(train_pairs, model_i, epoch_iters, voc, fold_train_total_loss[i+1], epoch)
+                    batch_metrics, label_counts = trainEpoch(train_pairs, model_i, epoch_iters, voc, fold_train_total_loss[i+1], epoch)
+                    print(f"label counts for all batches: \n {label_counts}")
                     """=== MLFLOW= ==="""
                     for bm in batch_metrics:
                         mlflow.log_metric(
@@ -412,6 +440,9 @@ def finetune_craft(config):
                             value=bm["loss"],
                             step=(bm["epoch"] - 1) * epoch_iters + bm["iteration"]
                         )
+                    fig = plot_batch_distributions(label_counts,fold, epoch, label_map)
+                    mlflow.log_figure(fig, artifact_file = f"fold_{i}/epoch_{epoch:02d}_batch_label_distribution.png")
+                    plt.close()
                     #{"epoch": epoch, "val_scores": val_scores}
                     #val_scores = {"score":val, ...}
                     epoch_metrics = evalEpoch(voc, val_pairs, model_i, epoch)
@@ -435,19 +466,19 @@ def finetune_craft(config):
                         value=mean_val,
                         step=epoch
                     )
-
                 if ray_tune:
-                    tune.report(**log_fold_to_tune(epoch, fold_batch_metrics))
-                    tune.report(**log_epoch_to_tune(epoch, mean_per_epochs))
+                    all_metrics = {**log_fold_to_tune(epoch, fold_batch_metrics), **log_epoch_to_tune(epoch, mean_per_epochs)}
+                    tune.report(all_metrics)
                 else:
                     print(f"Logging metrics for epoch {epoch}")
                     for fold_idx in range(1, k_folds+1):
                         log_folds(fold_idx, "training", "epoch_metrics.txt", fold_epoch_metrics[f"fold_{fold_idx}"][-1])
                         log_folds(fold_idx, "training", "batch_metrics.txt", fold_batch_metrics[f"fold_{fold_idx}"][-1])
                     log_exp("training", "avg_metrics.txt", mean_per_epochs[-1])
-                if not ray_tune:
-                    log_exp("config", "config.txt", config)
-                """=== MLFLOW= =="""
+            if not ray_tune:
+                log_exp("config", "config.txt", config)
+            """=== MLFLOW= =="""
+
         # mlflow.end_run()
     # except Exception as e:
     #     print(f"Experiment failed: {e!r}")
@@ -485,6 +516,76 @@ def apply_config(config):
             continue
 
 
+
+def finetune_craft_test(config, data):
+            apply_config(config)
+            convo_dataframe, utterance_dataframe = loadDataArtifacts(data)
+            #create training logic:
+            X_train_id, X_test_id, y_train_id, y_test_id = createTrainTestSplit(convo_dataframe)
+            convo_dataframe_main = assignSplit(convo_dataframe, train_ids=X_train_id, test_ids=X_test_id)
+            X_train = convo_dataframe.loc[X_train_id]
+            X_test = convo_dataframe.loc[X_test_id]
+            #same splits for each k-fold index
+            train_val_id_list = createTrainValSplit(X_train)
+            fold_models = []
+            fold_dataframes = []
+            fold_opts = []
+            fold_data = []
+            fold_batch_metrics = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐batch dicts
+            fold_epoch_metrics    = {f"fold_{i}": [] for i in range(1, k_folds+1)}  # will hold per‐epoch dicts
+            fold_train_total_loss = {i: 0.0 for i in range(1, k_folds + 1)}
+            # load model for each fold:
+            for fold, pair in enumerate(train_val_id_list, start=1):
+                print(f"=== Loading fold artifacts for fold {fold} ===")
+                craft_model, voc, optim = loadModelArtifacts(data)
+                print(f"Loading fold directories")
+                build_fold_directories(fold)
+                print(f"Loading train/val pairs")
+                convo_dataframe_fold = assignSplit(convo_dataframe, train_ids=pair[0], val_ids=pair[1])
+                train_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_train, split_key="train")
+                val_pairs = loadLabeledPairs(voc, utterance_dataframe, convo_dataframe_fold, last_only = last_only_val, split_key="val")
+                fold_models.append(craft_model)
+                fold_opts.append(optim)
+                fold_data.append((train_pairs, val_pairs))
+                fold_dataframes.append(convo_dataframe_fold)
+            """Can maybe parallelize this to have all folds running one epoch at same time """
+            # train each fold per epoch to implement early stopping with avg-val-score of choice
+            for epoch in range(1, finetune_epochs + 1):
+                for i in range(k_folds):
+                    model_i = fold_models[i]
+                    train_pairs, val_pairs = fold_data[i]
+                    #create epoch iterations:
+                    epoch_iters = computerIterations(train_pairs)
+                    #{"batch_losses": {"epoch": epoch, "iteration": iteration,"loss": loss}}
+                    batch_metrics, label_counts = trainEpoch(train_pairs, model_i, epoch_iters, voc, fold_train_total_loss[i+1], epoch)
+                    print(f"label counts for all batches: \n {label_counts}")
+                    fig = plot_batch_distributions(label_counts,fold, epoch, label_map)
+                    fig_path = f"fold_{i}/epoch_{epoch:02d}_batch_label_distribution.png"
+                    fig.savefig(fig_path)
+                    fig.clf()
+
+                    #{"epoch": epoch, "val_scores": val_scores}
+                    #val_scores = {"score":val, ...}
+                    epoch_metrics = evalEpoch(voc, val_pairs, model_i, epoch)
+                    fold_batch_metrics[f"fold_{i+1}"].append(batch_metrics)
+                    fold_epoch_metrics[f"fold_{i+1}"].append(epoch_metrics)
+                all_folds = list(fold_epoch_metrics.values())
+                #{"epoch": epoch, "val_scores": val_scores}
+                mean_per_epochs = average_across_folds(all_folds)
+                mean_scores_this_epoch = mean_per_epochs[-1]["mean_val_scores"]
+    
+                if ray_tune:
+                    all_metrics = {**log_fold_to_tune(epoch, fold_batch_metrics), **log_epoch_to_tune(epoch, mean_per_epochs)}
+                    tune.report(all_metrics)
+                else:
+                    print(f"Logging metrics for epoch {epoch}")
+                    for fold_idx in range(1, k_folds+1):
+                        log_folds(fold_idx, "training", "epoch_metrics.txt", fold_epoch_metrics[f"fold_{fold_idx}"][-1])
+                        log_folds(fold_idx, "training", "batch_metrics.txt", fold_batch_metrics[f"fold_{fold_idx}"][-1])
+                    log_exp("training", "avg_metrics.txt", mean_per_epochs[-1])
+            if not ray_tune:
+                log_exp("config", "config.txt", config)
+            """=== MLFLOW= =="""
 
 """ 
 1.Data Pre-processing: 
