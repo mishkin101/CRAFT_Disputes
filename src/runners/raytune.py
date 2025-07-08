@@ -81,14 +81,12 @@ runConfig = RunConfig(
         ],
     )
 
-raw_file = "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src/data/finetuning_preprocessing/raw/kodis/KODIS-EN.csv"
-model_fil= "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src/data/finetuning_preprocessing/raw/kodis/craft_model.tar.gz"
-data_list = [raw_file, model_file]
+
+
+
 tuner = tune.Tuner(
-    tune.with_resources(tune.with_parameters(
-        finetune_utils.finetune_craft_test, data= data_list),
-        resources={"cpu": 2, "gpu": 0},
-    ),
+    tune.with_resources(finetune_utils.finetune_craft_test,
+        resources={"cpu": 2, "gpu": 0}),
     tune_config=tune_config,
     param_space=search_space_test,
     run_config=runConfig
@@ -96,12 +94,14 @@ tuner = tune.Tuner(
 
 
 if __name__ == "__main__":
+
     ray.init(
     runtime_env={
       "working_dir": "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src", 
-      "excludes": [".git", ".git/*", "src/experiments/*", "mlruns/*", "ray_results/*"]
+      "excludes": [".git", ".git/*", "src/experiments/*", "mlruns/*", "ray_results/*", "data/*", "saved_models/*"]
         }
     )
+
     results = tuner.fit()
     best = results.get_best_result(metric="mean_val_f1_micro", mode="max")
     print("Best config:", best.config)

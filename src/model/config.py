@@ -5,6 +5,7 @@ from pathlib import Path
 # get the absolute path to the repository so we don't have to deal with relative paths
 repo_dir = Path(__file__).parent.parent.absolute()
 
+
 corpus_name = "custom" # Name of the dataset to run CRAFT on. This is not directly used by the model, it is instead used by
                          # this config file to define certain input and output locations. You can, of course, override those
                          # location settings directly and thus completely ignore this setting, it is just useful to use this
@@ -45,9 +46,11 @@ finetune_data = "KODIS-EN.csv"
 #Name of the pretrained model file:
 pretrained_model = "model.tar"
 # define file locations
-data_dir = os.path.join(repo_dir, "data") # Where to save the pre-processed data files
-save_dir_pretrain = os.path.join(repo_dir, "saved_models", corpus_name, "pretrained_models")
-save_dir_finetune = os.path.join(repo_dir, "saved_models", corpus_name, "finetuned_models")
+data_dir = "/Users/mishkin/Desktop/data"
+# os.path.join(repo_dir, "data") # Where to save the pre-processed data files
+model_path = '/Users/mishkin/Desktop/saved_models'
+save_dir_pretrain = os.path.join(model_path, corpus_name, "pretrained_models")
+save_dir_finetune = os.path.join(model_path, corpus_name, "finetuned_models")
 pretrain_model_path = os.path.join(save_dir_pretrain, pretrained_model)
 
 # os.path.join(repo_dir, "saved_models", corpus_name) # Where to save the pre-trained model
@@ -181,20 +184,20 @@ UNK_token = 3  # Unknown word token
 
 # These are the global names you want to skip when saving.
 _CONFIG_BLACKLIST = {
-   #  "repo_dir",
-   #  "corpus_dir",
-   #  "train_path",
-   #  "word2index_path",
-   #  "index2word_path",
-   #  "experiments_dir",
-   #  "fine_raw_dir",
-   #  "fine_processed_dir",
-   #  "experiment_dir",
-   #  "PAD_token", "SOS_token", "EOS_token", "UNK_token",
-   #  'data_dir',
-   #  'save_dir_pretrain',
-   #  'save_dir_finetune',
-   #  'corpora'
+    "repo_dir",
+    "corpus_dir",
+    "train_path",
+    "word2index_path",
+    "index2word_path",
+    "experiments_dir",
+    "fine_raw_dir",
+    "fine_processed_dir",
+    "experiment_dir",
+    "PAD_token", "SOS_token", "EOS_token", "UNK_token",
+    'data_dir',
+    'save_dir_pretrain',
+    'save_dir_finetune',
+    'corpora'
 }
 
 if __name__ == "__main__":

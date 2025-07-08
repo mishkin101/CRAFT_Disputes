@@ -81,9 +81,9 @@ class CraftPipeline(nn.Module):
 Get the corpus object from chosen directory
 If train mode: then return utterances and convo dataframe and perform context selection
 """
-def loadDataset(data=None):
-    if data:
-        fine_raw_file = data[0]
+def loadDataset():
+    # if data:
+    #     fine_raw_file = data[0]
     print(f"getting data from {fine_raw_file}")
     print(f"dropping conversation values: {finetune_conversation_map}")
     print(f"dropping utterance values: {finetune_utterance_map}")
@@ -91,7 +91,7 @@ def loadDataset(data=None):
     data = DataProcesser(filepath=fine_raw_file)
     data.contextSelection(finetune_conversation_map, finetune_utterance_map)
     exp_processed_file = os.path.join(experiment_dir, fine_processed_filename)
-    data.saveToCSV(exp_processed_file, drop_parsed=True)
+    # data.saveToCSV(exp_processed_file, drop_parsed=True)
     print("displaying processes dataframes:")
     display(data.getDataframe())
     print("displaying utterance dataframe:")
@@ -118,9 +118,7 @@ def loadDevice():
         return torch.device('cpu')
 
 """Load Pretrained Model checkpoint"""
-def loadPretrainedModel(data=None):
-    if data:
-        pretrain_model_path = data[1]
+def loadPretrainedModel():
     if not os.path.exists(pretrain_model_path):
         raise FileNotFoundError(f"Model file not found at {pretrain_model_path}")
     if device == 'cuda':
@@ -304,7 +302,7 @@ def trainEpoch(train_pairs, craft_model, epoch_iterations, voc, total_loss, epoc
         total_loss += loss
         print(f"the true batch size is:{true_batch_size}")
         if iteration % print_every == 0:
-            batch_losses.append({"epoch": epoch, "iteration": (epoch-1)*epoch_iterations + iteration +1,"loss": loss})
+            batch_losses.append({"epoch": epoch, "iteration": (epoch-1)*epoch_iterations + iteration + 1,"loss": loss})
             print("train loss is:", loss)
         flat = labels.view(-1).long()
         counts = torch.bincount(flat).cpu().numpy()
@@ -492,13 +490,15 @@ def finetune_craft(config):
     
 def log_fold_to_tune(epoch: int, fold_batch_metrics):
     report_dict = {}
-    for fold_name, batch_list in fold_batch_metrics.items():
-        for entry in batch_list:
-            if entry["epoch"] != epoch:
-                continue
-            iteration = entry["iteration"]
-            loss = entry["loss"]
-            report_dict[f"{fold_name}_train_loss_{iteration}"] = loss
+    for fold_name, epoch_list in fold_batch_metrics.items():
+        #add another epoch level here
+        for epoc in epoch_list:
+            for batch in epoc:
+                if batch["epoch"] != epoch:
+                    continue
+                iteration = batch["iteration"]
+                loss = batch["loss"]
+                report_dict[f"{fold_name}_train_loss_{iteration}"] = loss
     return report_dict
 
 def log_epoch_to_tune(epoch: int, mean_per_epochs):
@@ -517,9 +517,9 @@ def apply_config(config):
 
 
 
-def finetune_craft_test(config, data):
+def finetune_craft_test(config):
             apply_config(config)
-            convo_dataframe, utterance_dataframe = loadDataArtifacts(data)
+            convo_dataframe, utterance_dataframe = loadDataArtifacts()
             #create training logic:
             X_train_id, X_test_id, y_train_id, y_test_id = createTrainTestSplit(convo_dataframe)
             convo_dataframe_main = assignSplit(convo_dataframe, train_ids=X_train_id, test_ids=X_test_id)
@@ -537,7 +537,7 @@ def finetune_craft_test(config, data):
             # load model for each fold:
             for fold, pair in enumerate(train_val_id_list, start=1):
                 print(f"=== Loading fold artifacts for fold {fold} ===")
-                craft_model, voc, optim = loadModelArtifacts(data)
+                craft_model, voc, optim = loadModelArtifacts()
                 print(f"Loading fold directories")
                 build_fold_directories(fold)
                 print(f"Loading train/val pairs")
@@ -559,10 +559,10 @@ def finetune_craft_test(config, data):
                     #{"batch_losses": {"epoch": epoch, "iteration": iteration,"loss": loss}}
                     batch_metrics, label_counts = trainEpoch(train_pairs, model_i, epoch_iters, voc, fold_train_total_loss[i+1], epoch)
                     print(f"label counts for all batches: \n {label_counts}")
-                    fig = plot_batch_distributions(label_counts,fold, epoch, label_map)
-                    fig_path = f"fold_{i}/epoch_{epoch:02d}_batch_label_distribution.png"
-                    fig.savefig(fig_path)
-                    fig.clf()
+                    # fig = plot_batch_distributions(label_counts,fold, epoch, label_map)
+                    # fig_path = f"fold_{i}/epoch_{epoch:02d}_batch_label_distribution.png"
+                    # fig.savefig(fig_path)
+                    # fig.clf()
 
                     #{"epoch": epoch, "val_scores": val_scores}
                     #val_scores = {"score":val, ...}
@@ -573,7 +573,7 @@ def finetune_craft_test(config, data):
                 #{"epoch": epoch, "val_scores": val_scores}
                 mean_per_epochs = average_across_folds(all_folds)
                 mean_scores_this_epoch = mean_per_epochs[-1]["mean_val_scores"]
-    
+                print(f"fold_batch_metricsis \n{fold_batch_metrics}")
                 if ray_tune:
                     all_metrics = {**log_fold_to_tune(epoch, fold_batch_metrics), **log_epoch_to_tune(epoch, mean_per_epochs)}
                     tune.report(all_metrics)
