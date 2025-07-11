@@ -2,7 +2,7 @@ import re
 import pandas as pd
 from convokit import Corpus, Speaker, Utterance, Conversation
 from IPython.display import display
-from model.config import *
+from craft.model.config import *
 
 
 

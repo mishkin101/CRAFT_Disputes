@@ -1,6 +1,6 @@
-from model.config import *
-from model.data import *
-from model.model import *
+from .config import *
+from .data import *
+from .model import *
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim import Adam
 

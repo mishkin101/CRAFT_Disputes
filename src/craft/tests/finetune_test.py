@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
-from model.data import processLabeledDialogs, loadLabeledPairs
-from model.config import *
+from craft.model.data import processLabeledDialogs, loadLabeledPairs
+from craft.model.config import *
 
 # Dummy vocabulary with limited known tokens
 def make_dummy_voc():

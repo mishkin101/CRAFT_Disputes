@@ -1,4 +1,4 @@
-from model.config import *
+from craft.model.config import *
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
@@ -6,7 +6,7 @@ import sys
 import json
 from types import ModuleType
 import torch
-from model.config import *
+from craft.model.config import *
 
 """Handle logic for saving training metrics"""
 def save_experiment_results_train_batch(out_dir, train_dict):

@@ -7,9 +7,9 @@ from ray.tune import TuneConfig
 from ray.tune.schedulers import ASHAScheduler
 from ray.air.integrations.mlflow import MLflowLoggerCallback
 from types import ModuleType
-import utils.finetune_utils as finetune_utils
+import craft.utils.finetune_utils as finetune_utils
 
-import model.config as cfg_mod
+import craft.model.config as cfg_mod
 
 
 def get_config_dict():
@@ -93,16 +93,20 @@ tuner = tune.Tuner(
 )
 
 
-if __name__ == "__main__":
+def run_tune():
+ return
 
-    ray.init(
+if __name__ == "__main__":
+    ray.init( 
+        address="auto", 
     runtime_env={
-      "working_dir": "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src", 
-      "excludes": [".git", ".git/*", "src/experiments/*", "mlruns/*", "ray_results/*", "data/*", "saved_models/*"]
+      "working_dir": "/Users/mishkin/Desktop/Research/CRAFT_Disputes/CRAFT_Disputes/src/craft", 
+      "excludes": [".git", ".git/*", "src/craft/experiments/*", "mlruns/*", "ray_results/*", "data/*", "saved_models/*"]
         }
     )
-
     results = tuner.fit()
+    df = results.get_dataframe()
+    print(df.head())
     best = results.get_best_result(metric="mean_val_f1_micro", mode="max")
     print("Best config:", best.config)
     print("Best mean_accuracy:", best.metrics["mean_val_accuracy"])

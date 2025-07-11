@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Type
 from typing import Dict, List
 from sklearn.metrics import get_scorer
-from ray.tune import tune
+from ray import tune
 from torch.nn import functional as F
 import shutil
 import mlflow
@@ -12,24 +12,24 @@ import mlflow
 
 
 # import all configuration variables
-from model.config import *
-import model.config as cfg_mod
+from craft.model.config import *
+import craft.model.config as cfg_mod
 # import data preprocessing functions
-from model.data import *
+from craft.model.data import *
 # import CRAFT models
-from model.model import *
+from craft.model.model import *
 # import custom classifier heads
-from model.classifiers import *
+from craft.model.classifiers import *
 #import optimizer
-from model.optimizer import *
+from craft.model.optimizer import *
 #import data utilties
-from utils.data_processing import DataProcesser
+from craft.utils.data_processing import DataProcesser
 #import corpys utilities
-from utils.corpus_utils import *
+from craft.utils.corpus_utils import *
 #import file utils
-from utils.file_utils import *
+from craft.utils.file_utils import *
 #importing plotting functions:
-from utils.plotting_utils import *
+from craft.utils.plotting_utils import *
 
 
 

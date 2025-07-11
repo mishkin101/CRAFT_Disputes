@@ -6,9 +6,9 @@ import torch.nn.functional as F
 import random
 import os
 
-from model.config import *
-from model.data import *
-from model.model import *
+from craft.model.config import *
+from craft.model.data import *
+from craft.model.model import *
 
 def maskNLLLoss(inp, target, mask):
     nTotal = mask.sum()
